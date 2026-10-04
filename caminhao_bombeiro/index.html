@@ -86,7 +86,8 @@ kbd{font-family:var(--body);font-weight:700;font-size:13px;min-width:26px;text-a
 .final span{font-size:11px;letter-spacing:.12em;color:var(--steel);text-transform:uppercase;}
 
 /* touch controls */
-#touch{position:absolute;inset:auto 0 0 0;bottom:calc(84px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;padding:0 12px;pointer-events:none;}
+#controls{position:absolute;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:6px;z-index:2;}
+.ctlLbl{font-size:10px;letter-spacing:.16em;color:var(--steel);font-weight:700;text-shadow:0 1px 2px #000;}
 .pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px;pointer-events:auto;}
 .tb{background:rgba(16,21,26,.7);border:1px solid rgba(255,255,255,.18);color:var(--chalk);border-radius:10px;font-size:20px;touch-action:none;font-family:var(--body);font-weight:700;}
 .tb.on{background:rgba(215,38,30,.75);}
@@ -94,7 +95,20 @@ kbd{font-family:var(--body);font-weight:700;font-size:13px;min-width:26px;text-a
 .tb.lf{grid-column:1;grid-row:2;}
 .tb.dn{grid-column:2;grid-row:2;}
 .tb.rt{grid-column:3;grid-row:2;}
-.right{display:flex;gap:8px;align-items:flex-end;pointer-events:auto;}
+.right{display:flex;gap:10px;align-items:flex-end;pointer-events:auto;}
+.tb:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
+#joy{position:absolute;width:150px;height:150px;margin:-75px 0 0 -75px;border-radius:50%;border:3px solid rgba(255,255,255,.45);background:rgba(16,21,26,.25);pointer-events:none;z-index:1;}
+#joy::before,#joy::after{content:"";position:absolute;left:50%;top:50%;background:rgba(255,255,255,.2);transform:translate(-50%,-50%);}
+#joy::before{width:2px;height:100%;}
+#joy::after{width:100%;height:2px;}
+#knob{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;border-radius:50%;background:var(--red);border:3px solid var(--chalk);box-shadow:0 3px 8px rgba(0,0,0,.5);}
+#siren{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:196px;z-index:2;display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;border-radius:24px;border:2px solid rgba(255,255,255,.2);background:var(--panel);color:var(--chalk);font-family:var(--display);font-size:14px;cursor:pointer;touch-action:manipulation;}
+#siren .dot{width:14px;height:14px;border-radius:50%;background:#555;box-shadow:inset 0 0 0 2px rgba(0,0,0,.4);}
+#siren.on{border-color:var(--red);}
+#siren.on .dot{animation:blink .5s steps(1) infinite;}
+#siren:focus-visible{outline:3px solid var(--amber);outline-offset:2px;}
+@keyframes blink{0%{background:#ff2a2a;box-shadow:0 0 10px #ff2a2a}50%{background:#3a7bff;box-shadow:0 0 10px #3a7bff}}
+#driveHint{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);font-size:clamp(15px,2.4vw,20px);font-weight:700;text-align:center;padding:10px 18px;border-radius:12px;background:var(--panel);pointer-events:none;transition:opacity .4s;max-width:calc(100vw - 32px);}
 #jet{width:84px;height:84px;border-radius:50%;background:rgba(40,120,200,.8);font-family:var(--display);font-size:15px;}
 #jet.on{background:var(--water);color:#062033;}
 .padlbl{grid-column:1/4;font-size:10px;letter-spacing:.14em;text-align:center;color:var(--steel);}
@@ -110,9 +124,10 @@ kbd{font-family:var(--body);font-weight:700;font-size:13px;min-width:26px;text-a
   #tankL{font-size:16px;}
   .pad{grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,46px);}
   #jet{width:74px;height:74px;}
-  #touch{bottom:calc(60px + env(safe-area-inset-bottom,0px));}
+  #siren{top:auto;right:auto;left:12px;bottom:calc(58px + env(safe-area-inset-bottom,0px));padding:12px 14px 12px 10px;font-size:13px;}
+  #controls{bottom:calc(58px + env(safe-area-inset-bottom,0px));}
 }
-@media (prefers-reduced-motion:reduce){ #toast{transition:none;} }
+@media (prefers-reduced-motion:reduce){ #toast{transition:none;} #siren.on .dot{animation:none;background:#ff2a2a;} }
 </style>
 
 </head>
@@ -144,20 +159,19 @@ kbd{font-family:var(--body);font-weight:700;font-size:13px;min-width:26px;text-a
   <div class="hud" id="prompt"></div>
   <div class="hud" id="toast"></div>
 
-  <div id="touch" hidden>
-    <div class="pad">
-      <span class="padlbl" style="display:none"></span>
-      <button class="tb up" data-k="KeyW" aria-label="Acelerar">▲</button>
-      <button class="tb lf" data-k="KeyA" aria-label="Virar à esquerda">◀</button>
-      <button class="tb dn" data-k="KeyS" aria-label="Frear e ré">▼</button>
-      <button class="tb rt" data-k="KeyD" aria-label="Virar à direita">▶</button>
-    </div>
+  <div id="joy" hidden><div id="knob"></div></div>
+  <div id="driveHint" hidden></div>
+
+  <button id="siren" type="button" aria-pressed="false"><span class="dot"></span><span id="sirenTxt">SIRENE</span></button>
+
+  <div id="controls">
+    <span class="ctlLbl">MANGUEIRA</span>
     <div class="right">
       <div class="pad">
-        <button class="tb up" data-k="ArrowUp" aria-label="Mirar para cima">⤒</button>
-        <button class="tb lf" data-k="ArrowLeft" aria-label="Mirar à esquerda">⟲</button>
-        <button class="tb dn" data-k="ArrowDown" aria-label="Mirar para baixo">⤓</button>
-        <button class="tb rt" data-k="ArrowRight" aria-label="Mirar à direita">⟳</button>
+        <button class="tb up" data-k="ArrowUp" aria-label="Mirar para cima">▲</button>
+        <button class="tb lf" data-k="ArrowLeft" aria-label="Mirar à esquerda">◀</button>
+        <button class="tb dn" data-k="ArrowDown" aria-label="Mirar para baixo">▼</button>
+        <button class="tb rt" data-k="ArrowRight" aria-label="Mirar à direita">▶</button>
       </div>
       <button class="tb" id="jet" data-k="Space">JATO</button>
     </div>
@@ -169,12 +183,13 @@ kbd{font-family:var(--body);font-weight:700;font-size:13px;min-width:26px;text-a
       <h1>Plantão <b>193</b></h1>
       <p>A cidade não para de pegar fogo. Encontre os focos, pare o caminhão na frente, mire a mangueira e jogue água até apagar. Quando o tanque secar, abasteça num hidrante.</p>
       <dl class="keys" id="keysDesk">
-        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Dirigir o caminhão</dd>
-        <dt><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Mirar a mangueira</dd>
-        <dt><kbd>Espaço</kbd></dt><dd>Jogar água (segure, com o caminhão parado)</dd>
+        <dt><kbd>👆 Arraste</kbd></dt><dd>Toque e arraste na tela: para cima anda, para os lados vira, para baixo dá ré. Solte para frear.</dd>
+        <dt><kbd>◀</kbd><kbd>▶</kbd><kbd>▲</kbd><kbd>▼</kbd></dt><dd>Botões de baixo: mirar a mangueira</dd>
+        <dt><kbd>JATO</kbd></dt><dd>Segure para jogar água (com o caminhão parado)</dd>
+        <dt><kbd>SIRENE</kbd></dt><dd>Liga e desliga a sirene</dd>
         <dt><kbd>💧</kbd></dt><dd>Pare perto de um hidrante (luz azul) para abastecer</dd>
       </dl>
-      <p class="note">A seta amarela no alto aponta o foco mais próximo. Se um foco queimar por tempo demais, o prédio ou a árvore é perdido. Cinco perdas encerram o plantão.</p>
+      <p class="note">No teclado: W A S D dirigem, setas miram, Espaço joga água, H liga a sirene. A seta amarela no alto aponta o foco mais próximo. Se um foco queimar por tempo demais, o prédio ou a árvore é perdido. Cinco perdas encerram o plantão.</p>
       <div class="row"><button class="btn" id="startBtn">Começar plantão</button><span class="hint" id="enterHint">ou aperte Enter</span></div>
     </div>
   </div>
@@ -503,24 +518,93 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-if (isTouch){
-  $('touch').hidden = false;
-  $('enterHint').hidden = true;
-  document.querySelectorAll('#touch [data-k]').forEach(b => {
-    const k = b.dataset.k;
-    const on = e => { e.preventDefault(); keys[k] = true; b.classList.add('on'); try{ b.setPointerCapture(e.pointerId); }catch(_){} };
-    const off = e => { keys[k] = false; b.classList.remove('on'); };
-    b.addEventListener('pointerdown', on);
-    b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
-    b.addEventListener('contextmenu', e => e.preventDefault());
-  });
+if (isTouch) $('enterHint').hidden = true;
+document.querySelectorAll('#controls [data-k]').forEach(b => {
+  const k = b.dataset.k;
+  const on = e => { e.preventDefault(); e.stopPropagation(); keys[k] = true; b.classList.add('on'); try{ b.setPointerCapture(e.pointerId); }catch(_){} };
+  const off = () => { keys[k] = false; b.classList.remove('on'); };
+  b.addEventListener('pointerdown', on);
+  b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+
+/* drag-to-drive joystick: appears where the finger lands */
+const joy = {id:null, ox:0, oy:0, x:0, y:0};
+const JOY_R = 70;
+const joyEl = $('joy'), knobEl = $('knob');
+canvas.addEventListener('pointerdown', e => {
+  if (state !== 'play' || joy.id !== null) return;
+  e.preventDefault();
+  joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = 0; joy.y = 0;
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+  joyEl.style.left = e.clientX + 'px'; joyEl.style.top = e.clientY + 'px';
+  knobEl.style.transform = 'translate(0px,0px)';
+  joyEl.hidden = false;
+  hideDriveHint();
+});
+canvas.addEventListener('pointermove', e => {
+  if (e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
+  const d = Math.hypot(dx, dy);
+  if (d > JOY_R){ dx *= JOY_R/d; dy *= JOY_R/d; }
+  joy.x = dx/JOY_R; joy.y = dy/JOY_R;
+  knobEl.style.transform = `translate(${dx}px,${dy}px)`;
+});
+const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joyEl.hidden = true; };
+canvas.addEventListener('pointerup', joyEnd);
+canvas.addEventListener('pointercancel', joyEnd);
+canvas.addEventListener('lostpointercapture', joyEnd);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+let hintShown = false;
+function showDriveHint(){
+  const h = $('driveHint');
+  h.textContent = isTouch ? 'Toque e arraste na tela para dirigir' : 'Clique e arraste na tela (ou use W A S D) para dirigir';
+  h.hidden = false; h.style.opacity = 1; hintShown = true;
 }
+function hideDriveHint(){ if (!hintShown) return; hintShown = false; const h = $('driveHint'); h.style.opacity = 0; setTimeout(() => { if (!hintShown) h.hidden = true; }, 400); }
+
+/* siren: two-tone, synthesized */
+let audioCtx = null, sirenNodes = null, sirenOn = false;
+function startSiren(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const ctx = audioCtx;
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = 760;
+    const lfo = ctx.createOscillator(); lfo.type = 'square'; lfo.frequency.value = 1.6;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = 190;
+    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+    const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 2400;
+    const vol = ctx.createGain(); vol.gain.value = 0;
+    vol.gain.linearRampToValueAtTime(0.07, ctx.currentTime + 0.15);
+    osc.connect(filt); filt.connect(vol); vol.connect(ctx.destination);
+    osc.start(); lfo.start();
+    sirenNodes = {osc, lfo, vol};
+  }catch(_){ sirenNodes = null; }
+}
+function stopSiren(){
+  if (!sirenNodes || !audioCtx) return;
+  const {osc, lfo, vol} = sirenNodes, t = audioCtx.currentTime;
+  vol.gain.cancelScheduledValues(t); vol.gain.setValueAtTime(vol.gain.value, t); vol.gain.linearRampToValueAtTime(0, t + 0.15);
+  osc.stop(t + 0.2); lfo.stop(t + 0.2);
+  sirenNodes = null;
+}
+function setSiren(on){
+  sirenOn = on;
+  const b = $('siren');
+  b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  $('sirenTxt').textContent = on ? 'SIRENE LIGADA' : 'SIRENE';
+  if (on) startSiren(); else stopSiren();
+}
+$('siren').addEventListener('click', () => setSiren(!sirenOn));
+addEventListener('keydown', e => { if (e.code === 'KeyH' && !e.repeat) setSiren(!sirenOn); });
 
 function startGame(){
   resetGame();
   state = 'play';
   $('menu').hidden = true; $('over').hidden = true;
-  canvas.focus && canvas.focus();
+  showDriveHint();
 }
 $('startBtn').addEventListener('click', startGame);
 $('againBtn').addEventListener('click', startGame);
@@ -533,6 +617,8 @@ function endGame(){
   $('fTime').textContent = Math.floor(s/60) + ':' + String(s % 60).padStart(2, '0');
   $('over').hidden = false;
   for (const k in keys) keys[k] = false;
+  joy.id = null; joy.x = joy.y = 0; joyEl.hidden = true;
+  if (sirenOn) setSiren(false);
 }
 
 let toastTimer = 0;
@@ -609,24 +695,52 @@ function aimDir(out){
   return out.set(Math.sin(yaw)*Math.cos(p), Math.sin(p), Math.cos(yaw)*Math.cos(p));
 }
 
+let steerS = 0;
 function updateTruck(dt){
-  const fwd = keys.KeyW, back = keys.KeyS;
-  const steer = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0);
-  if (fwd) T.speed = Math.min(T.speed + 16*dt, 22);
-  else if (back){ T.speed = T.speed > 0.5 ? T.speed - 34*dt : Math.max(T.speed - 9*dt, -8); }
-  else { T.speed *= (1 - 1.6*dt); if (Math.abs(T.speed) < 0.25) T.speed = 0; }
-  T.heading += steer * 1.9 * dt * clamp(T.speed/7, -1, 1);
+  // inputs: joystick (analog) or keyboard
+  let thr = 0, st = 0;
+  if (joy.id !== null){
+    const jy = -joy.y, jx = -joy.x;
+    thr = Math.abs(jy) < 0.18 ? 0 : (jy - Math.sign(jy)*0.18)/0.82;
+    st = Math.abs(jx) < 0.15 ? 0 : (jx - Math.sign(jx)*0.15)/0.85;
+  }
+  if (keys.KeyW) thr = 1; else if (keys.KeyS) thr = -1;
+  if (keys.KeyA) st = 1; else if (keys.KeyD) st = -1;
+  steerS += (st - steerS) * Math.min(1, dt*8);
+
+  const target = thr > 0 ? thr*20 : thr*7;
+  let accel;
+  if (thr === 0) accel = 12;                                   // coast to a stop
+  else if (Math.sign(target) !== Math.sign(T.speed) && Math.abs(T.speed) > 0.3) accel = 30; // braking
+  else accel = 11;
+  const dv = target - T.speed;
+  T.speed += Math.sign(dv) * Math.min(Math.abs(dv), accel*dt);
+  if (thr === 0 && Math.abs(T.speed) < 0.3) T.speed = 0;
+
+  // steering: turns in place a little, sharper at low speed, gentler at top speed
+  const sp = Math.abs(T.speed);
+  const grip = sp < 0.2 ? 0 : clamp(sp/4, 0.35, 1) * (1 - sp/60);
+  T.heading += steerS * 2.0 * grip * Math.sign(T.speed || 1) * dt;
+
+  // gently line up with the street when not steering
+  if (Math.abs(steerS) < 0.05 && sp > 3){
+    const q = Math.PI/2, snap = Math.round(T.heading/q)*q, off = snap - T.heading;
+    if (Math.abs(off) < 0.3) T.heading += off * Math.min(1, dt*2.5);
+  }
+
   T.x += Math.sin(T.heading) * T.speed * dt;
   T.z += Math.cos(T.heading) * T.speed * dt;
-  // collide with blocks (truck stays on roads)
+  // collide with blocks: slide along the curb instead of stopping dead
   const R = 2.5;
+  const fx = Math.sin(T.heading), fz = Math.cos(T.heading);
   for (const b of blocks){
     const cx = clamp(T.x, b.x - BLOCK/2, b.x + BLOCK/2), cz = clamp(T.z, b.z - BLOCK/2, b.z + BLOCK/2);
     const dx = T.x - cx, dz = T.z - cz, d2 = dx*dx + dz*dz;
     if (d2 < R*R){
-      const dd = Math.sqrt(d2) || 0.001;
-      T.x = cx + dx/dd*R; T.z = cz + dz/dd*R;
-      T.speed *= 0.6;
+      const dd = Math.sqrt(d2) || 0.001, nx = dx/dd, nz = dz/dd;
+      T.x = cx + nx*R; T.z = cz + nz*R;
+      const into = -(fx*nx + fz*nz) * Math.sign(T.speed);
+      if (into > 0) T.speed *= (1 - 0.8*into*Math.min(1, dt*10));
     }
   }
   T.x = clamp(T.x, -HALF + R, HALF - R); T.z = clamp(T.z, -HALF + R, HALF - R);
@@ -754,7 +868,7 @@ function updatePuffs(dt){
 /* ---------- HUD ---------- */
 const el = {pts:$('sPts'), ok:$('sOk'), act:$('sAct'), lost:$('sLost'), tankL:$('tankL'), tankFill:$('tankFill'), speed:$('speed'), prompt:$('prompt'), arrow:$('arrow'), seekTxt:$('seekTxt'), riskFill:$('riskFill'), seek:$('seek')};
 const sprayKey = isTouch ? 'JATO' : 'ESPAÇO';
-const aimKeys = isTouch ? 'os botões de mira' : 'as setas';
+const aimKeys = 'os botões da mangueira';
 let lastPrompt = '';
 function setPrompt(t){ if (t !== lastPrompt){ el.prompt.textContent = t; lastPrompt = t; } }
 
@@ -828,8 +942,8 @@ function frame(now){
   pitchG.rotation.x = -T.aimPitch;
   wheels.forEach(w => w.rotation.x += T.speed*dt/0.62);
   const flash = Math.sin(clock*14) > 0;
-  lightR.material.color.set(flash ? 0xff2a2a : 0x551111);
-  lightB.material.color.set(flash ? 0x1a2a55 : 0x3a7bff);
+  lightR.material.color.set(sirenOn && flash ? 0xff2a2a : 0x551111);
+  lightB.material.color.set(sirenOn && !flash ? 0x3a7bff : 0x1a2a55);
   hydrants.forEach(h => { h.ring.scale.setScalar(1 + 0.15*Math.sin(clock*3)); });
 
   updateArc(state === 'play' && stopped() && T.tank > 0);
@@ -851,10 +965,10 @@ function frame(now){
     const target = T.heading + (stopped() ? T.aimYaw*0.75 : 0);
     let diff = target - camYaw;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
-    camYaw += diff * Math.min(1, dt*3.2);
+    camYaw += diff * Math.min(1, dt*2.4);
     const dist = stopped() ? 15 : 14;
     const cx = T.x - Math.sin(camYaw)*dist, cz = T.z - Math.cos(camYaw)*dist;
-    camera.position.lerp(tmp.set(cx, 8.5, cz), Math.min(1, dt*6));
+    camera.position.lerp(tmp.set(cx, 9.5, cz), Math.min(1, dt*5));
     camera.lookAt(T.x + Math.sin(camYaw)*7, 2.6, T.z + Math.cos(camYaw)*7);
   }
   sun.position.set(T.x + 40, 70, T.z + 25);
