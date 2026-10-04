@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#3fb4e3">
+<title>Hércules de Resgate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Baloo+2:wght@500;700;800&display=swap">
+<style>
+/* Layout: one full-screen canvas scene (tropical sky over sea), HUD pills on top, centered card overlays for start and game over. Single daytime look by choice. */
+:root{
+  --ink:#14324a;
+  --paper:#fffaf0;
+  --sun:#ffb627;
+  --coral:#ff6b4a;
+  --leaf:#3f9c4f;
+  --sea:#127ea6;
+  --font-display:'Bungee','Arial Black',Impact,sans-serif;
+  --font-body:'Baloo 2','Trebuchet MS',system-ui,sans-serif;
+  color-scheme:light;
+}
+html,body{height:100%}
+body{margin:0;background:#14324a;color:var(--ink);font-family:var(--font-body);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+.hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px;pointer-events:none}
+.pill{background:rgba(255,250,240,.92);border-radius:999px;padding:4px 14px;font-weight:800;font-size:18px;display:flex;align-items:center;gap:6px;box-shadow:0 2px 0 rgba(20,50,74,.25);font-variant-numeric:tabular-nums}
+.pill small{font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;opacity:.7}
+.hearts{color:var(--coral);letter-spacing:2px;font-size:20px}
+.fuel{flex:1;max-width:160px}
+.bar{flex:1;height:10px;border-radius:6px;background:#d9e6ea;overflow:hidden}
+.bar i{display:block;height:100%;width:100%;background:var(--leaf);border-radius:6px;transition:background .3s}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(20,50,74,.25)}
+.card{background:var(--paper);border-radius:22px;padding:24px 22px 22px;max-width:360px;width:100%;text-align:center;box-shadow:0 6px 0 rgba(20,50,74,.35)}
+h1{font-family:var(--font-display);font-weight:400;font-size:clamp(28px,8vw,38px);line-height:1;margin:0 0 4px;color:var(--ink);text-wrap:balance}
+h1 span{color:var(--coral)}
+.sub{font-weight:700;color:var(--sea);margin:0 0 14px;letter-spacing:.04em;text-transform:uppercase;font-size:13px}
+.how{list-style:none;padding:0;margin:0 0 18px;text-align:left;display:grid;gap:8px;font-size:16px;line-height:1.3}
+.how li{display:flex;gap:10px;align-items:flex-start}
+.how b{flex:none;width:26px;height:26px;border-radius:50%;background:var(--sun);display:grid;place-items:center;font-size:13px}
+button{font-family:var(--font-display);font-size:22px;border:0;border-radius:16px;background:var(--coral);color:#fff;padding:14px 28px;width:100%;box-shadow:0 5px 0 #c64a2e;cursor:pointer}
+button:active{transform:translateY(3px);box-shadow:0 2px 0 #c64a2e}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.big{font-family:var(--font-display);font-size:56px;line-height:1;color:var(--ink);margin:6px 0 0}
+.lbl{font-weight:700;opacity:.7;margin:0 0 14px}
+.best{font-weight:700;color:var(--sea);margin:12px 0 0;font-size:15px}
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="pill"><small>Iguanas</small><span id="score">0</span></div>
+  <div class="pill hearts" id="hearts">♥♥♥</div>
+  <div class="pill fuel"><small>Comb.</small><div class="bar"><i id="fuelbar"></i></div></div>
+</div>
+
+<div class="overlay" id="menu">
+  <div class="card">
+    <h1>Hércules de <span>Resgate</span></h1>
+    <p class="sub">Missão nas ilhas das iguanas</p>
+    <ul class="how">
+      <li><b>1</b>Arraste o dedo na tela para pilotar o avião.</li>
+      <li><b>2</b>Voe baixinho sobre as ilhas para resgatar as iguanas.</li>
+      <li><b>3</b>Desvie das gaivotas e das nuvens de tempestade.</li>
+      <li><b>4</b>Pegue os galões de paraquedas para reabastecer.</li>
+    </ul>
+    <button id="start">Decolar</button>
+    <p class="best" id="bestMenu"></p>
+  </div>
+</div>
+
+<div class="overlay" id="over" hidden>
+  <div class="card">
+    <h1 id="overTitle">Fim da missão</h1>
+    <p class="big" id="final">0</p>
+    <p class="lbl">iguanas resgatadas</p>
+    <button id="again">Voar de novo</button>
+    <p class="best" id="bestOver"></p>
+  </div>
+</div>
+
+<script>
+(function(){
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+let W,H,S,DPR,seaY;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+  cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);ctx.setTransform(DPR,0,0,DPR,0,0);
+  S=Math.max(.6,Math.min(H/640,W/360,1.6));seaY=H*.8;
+  if(pl){pl.x=W*.28;}
+}
+let pl=null;
+addEventListener('resize',resize);resize();
+
+let best=0;try{best=+localStorage.getItem('herc_best')||0}catch(e){}
+function showBest(){const t=best>0?'Recorde: '+best+' iguanas':'';$('bestMenu').textContent=t;$('bestOver').textContent=t}
+showBest();
+
+// ---------- audio ----------
+let ac=null;
+function beep(f1,f2,dur,type,vol){
+  if(!ac)return;try{
+  const o=ac.createOscillator(),g=ac.createGain();o.type=type||'triangle';
+  o.frequency.setValueAtTime(f1,ac.currentTime);o.frequency.exponentialRampToValueAtTime(f2,ac.currentTime+dur);
+  g.gain.setValueAtTime(vol||.15,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);
+  o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+dur);}catch(e){}
+}
+
+// ---------- state ----------
+let state='menu',t=0,score=0,lives=3,fuel=100,inv=0,shake=0,lvl=0;
+let islands=[],gulls=[],storms=[],crates=[],flyers=[],pops=[],clouds=[],far=[];
+let nextIsland=0,gullT=2,stormT=6,crateT=8,targetY=0;
+pl={x:W*.28,y:H*.45,vy:0,tilt:0,ph:0};
+targetY=pl.y;
+
+function rnd(a,b){return a+Math.random()*(b-a)}
+function initScene(){
+  islands=[];gulls=[];storms=[];crates=[];flyers=[];pops=[];
+  clouds=[];for(let i=0;i<6;i++)clouds.push({x:rnd(0,W),y:rnd(H*.08,H*.45),k:rnd(.6,1.3)});
+  far=[];for(let i=0;i<4;i++)far.push({x:i*W*.4+rnd(0,80),w:rnd(120,260)*S,h:rnd(18,40)*S});
+  nextIsland=W*.5;
+}
+initScene();
+
+function spawnIsland(){
+  const w=rnd(130,230)*S,n=Math.random()<.35?3:(Math.random()<.6?2:1);
+  const igs=[];for(let i=0;i<n;i++){igs.push({dx:w*(.22+.56*(n===1?.5:i/(n-1))),taken:false,flip:Math.random()<.5,ph:rnd(0,6)})}
+  const palms=[];const np=Math.random()<.5?1:2;for(let i=0;i<np;i++)palms.push({dx:w*rnd(.15,.85),h:rnd(38,58),lean:rnd(-.35,.35)});
+  islands.push({x:W+20,w,igs,palms});
+}
+function islandH(isl,dx){const r=isl.w/2,u=(dx-r)/r;return 22*S*Math.sqrt(Math.max(0,1-u*u))}
+
+function reset(){
+  score=0;lives=3;fuel=100;inv=0;lvl=0;t=0;shake=0;
+  gullT=2;stormT=7;crateT=9;initScene();
+  pl.y=H*.45;targetY=pl.y;pl.vy=0;updHud(true);
+}
+
+// ---------- input ----------
+let dragging=false;
+function setTarget(e){targetY=e.clientY-45*S}
+cv.addEventListener('pointerdown',e=>{e.preventDefault();dragging=true;setTarget(e);try{cv.setPointerCapture(e.pointerId)}catch(_){}});
+cv.addEventListener('pointermove',e=>{if(dragging||e.pointerType==='mouse'){setTarget(e)}});
+addEventListener('pointerup',()=>dragging=false);
+addEventListener('pointercancel',()=>dragging=false);
+const keys={};
+addEventListener('keydown',e=>{keys[e.key]=true;if(e.key==='Enter'&&state!=='play')startGame()});
+addEventListener('keyup',e=>{keys[e.key]=false});
+
+let wake=null;
+function startGame(){
+  if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  if(ac&&ac.state==='suspended')ac.resume();
+  try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>wake=w).catch(()=>{})}catch(e){}
+  reset();state='play';$('menu').hidden=true;$('over').hidden=true;$('hud').hidden=false;
+  beep(300,600,.25,'sawtooth',.06);
+}
+$('start').addEventListener('click',startGame);
+$('again').addEventListener('click',startGame);
+
+function gameOver(msg){
+  state='over';$('hud').hidden=true;
+  $('overTitle').textContent=msg;$('final').textContent=score;
+  if(score>best){best=score;try{localStorage.setItem('herc_best',best)}catch(e){}}
+  showBest();$('over').hidden=false;beep(400,90,.6,'sawtooth',.1);
+}
+
+// ---------- HUD ----------
+let lastHud='';
+function updHud(force){
+  const f=Math.max(0,Math.round(fuel));const key=score+'|'+lives+'|'+f;
+  if(key===lastHud&&!force)return;lastHud=key;
+  $('score').textContent=score;
+  $('hearts').textContent='♥'.repeat(Math.max(0,lives))+'♡'.repeat(Math.max(0,3-lives));
+  const b=$('fuelbar');b.style.width=f+'%';b.style.background=f<25?'#ff6b4a':(f<50?'#ffb627':'#3f9c4f');
+}
+
+// ---------- update ----------
+function planePts(){const c=Math.cos(pl.tilt),s=Math.sin(pl.tilt);return [-40,0,40].map(d=>({x:pl.x+d*S*c,y:pl.y+d*S*s}))}
+function hitPlane(x,y,r){return planePts().some(p=>Math.hypot(p.x-x,p.y-y)<r+14*S)}
+function damage(){
+  if(inv>0)return;lives--;inv=1.8;shake=.35;beep(180,60,.35,'square',.12);
+  if(navigator.vibrate)try{navigator.vibrate(120)}catch(e){}
+  if(lives<=0)gameOver('O avião foi atingido!');
+}
+
+function update(dt){
+  t+=dt;const playing=state==='play';
+  const spd=(150+Math.min(lvl,10)*14)*S;
+  // plane
+  if(playing){
+    if(keys.ArrowUp||keys.w)targetY-=420*S*dt;
+    if(keys.ArrowDown||keys.s)targetY+=420*S*dt;
+  }else{targetY=H*.4+Math.sin(t*.9)*H*.12}
+  const minY=seaY-34*S,maxY=70*S;
+  targetY=Math.max(maxY,Math.min(minY,targetY));
+  pl.vy=(targetY-pl.y)*5;pl.y+=pl.vy*dt;
+  pl.tilt+=(Math.max(-.35,Math.min(.35,pl.vy/500))-pl.tilt)*Math.min(1,dt*8);
+  pl.ph+=dt*40;
+  if(inv>0)inv-=dt;if(shake>0)shake-=dt;
+
+  // background
+  for(const c of clouds){c.x-=spd*.25*c.k*dt;if(c.x<-160*S){c.x=W+rnd(20,200);c.y=rnd(H*.08,H*.45)}}
+  for(const f of far){f.x-=spd*.12*dt;if(f.x+f.w<0){f.x=W+rnd(40,200);f.w=rnd(120,260)*S;f.h=rnd(18,40)*S}}
+
+  // spawn
+  nextIsland-=spd*dt;if(nextIsland<=0){spawnIsland();nextIsland=rnd(380,720)*S}
+  if(playing){
+    fuel-=(3+lvl*.2)*dt;
+    gullT-=dt;if(gullT<=0){gulls.push({x:W+30,y:rnd(80*S,seaY-80*S),v:rnd(40,110)*S,ph:rnd(0,6),wob:rnd(10,30)*S});gullT=Math.max(.8,2.8-lvl*.18)+rnd(0,1.4)}
+    if(score>=3){stormT-=dt;if(stormT<=0){storms.push({x:W+80*S,y:rnd(90*S,seaY-170*S),r:rnd(42,58)*S,fl:0});stormT=Math.max(3,8-lvl*.5)+rnd(0,3)}}
+    crateT-=dt;if(crateT<=0){crates.push({x:W+rnd(0,W*.4),y:-30*S,vy:rnd(28,42)*S,ph:rnd(0,6),bob:0});crateT=rnd(6.5,10)}
+  }
+
+  // islands + pickup
+  for(const isl of islands){
+    isl.x-=spd*dt;
+    if(playing)for(const ig of isl.igs){
+      if(ig.taken)continue;
+      const ix=isl.x+ig.dx,iy=seaY-islandH(isl,ig.dx)-8*S;
+      if(Math.abs(ix-pl.x)<48*S&&Math.abs(iy-(pl.y+10*S))<38*S){
+        ig.taken=true;flyers.push({x:ix,y:iy,t:0,flip:ig.flip});
+      }
+    }
+  }
+  islands=islands.filter(i=>i.x+i.w>-40);
+
+  for(const g of gulls){g.x-=(spd+g.v)*dt;g.ph+=dt*9;const gy=g.y+Math.sin(g.ph*.25)*g.wob;g.cy=gy;if(playing&&hitPlane(g.x,gy,12*S))damage()}
+  gulls=gulls.filter(g=>g.x>-60);
+  for(const s of storms){s.x-=spd*.8*dt;s.fl-=dt;if(s.fl<=0&&Math.random()<dt*1.2)s.fl=.25;if(playing&&hitPlane(s.x,s.y,s.r*.7))damage()}
+  storms=storms.filter(s=>s.x>-150*S);
+  for(const c of crates){
+    c.x-=spd*.7*dt;c.ph+=dt*2;
+    if(c.y<seaY-10*S)c.y+=c.vy*dt;else c.bob+=dt;
+    if(playing&&!c.got&&hitPlane(c.x,c.y,18*S)){c.got=true;fuel=Math.min(100,fuel+40);pops.push({x:c.x,y:c.y,t:0,txt:'+ combustível',col:'#3f9c4f'});beep(500,900,.25,'sine',.12)}
+  }
+  crates=crates.filter(c=>!c.got&&c.x>-40&&c.bob<2.5);
+
+  for(const f of flyers){f.t+=dt*3;if(f.t>=1&&!f.done){f.done=true;score++;lvl=Math.floor(score/8);fuel=Math.min(100,fuel+4);pops.push({x:pl.x,y:pl.y-30*S,t:0,txt:'+1',col:'#ff6b4a'});beep(660,1100,.18,'triangle',.14)}}
+  flyers=flyers.filter(f=>!f.done);
+  for(const p of pops)p.t+=dt;pops=pops.filter(p=>p.t<1);
+
+  if(playing){if(fuel<=0){fuel=0;gameOver('Acabou o combustível!')}updHud()}
+}
+
+// ---------- drawing ----------
+function ell(x,y,rx,ry){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill()}
+function drawSky(){
+  const g=ctx.createLinearGradient(0,0,0,seaY);g.addColorStop(0,'#3fb4e3');g.addColorStop(1,'#c7eef7');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,seaY+2);
+  // sun
+  const sx=W*.82,sy=H*.13;ctx.fillStyle='rgba(255,214,102,.35)';ell(sx,sy,58*S,58*S);ctx.fillStyle='#ffd34d';ell(sx,sy,36*S,36*S);
+  for(const c of clouds)drawCloud(c.x,c.y,c.k*S,'rgba(255,255,255,.9)');
+  // far islands
+  ctx.fillStyle='#5fa7a0';
+  for(const f of far){ctx.beginPath();ctx.ellipse(f.x+f.w/2,seaY,f.w/2,f.h,0,Math.PI,0);ctx.fill()}
+}
+function drawCloud(x,y,k,col){ctx.fillStyle=col;ell(x,y,34*k,18*k);ell(x+28*k,y-8*k,26*k,20*k);ell(x+54*k,y,30*k,16*k);ell(x+24*k,y+6*k,40*k,14*k)}
+function drawSea(){
+  const g=ctx.createLinearGradient(0,seaY,0,H);g.addColorStop(0,'#1aa0c4');g.addColorStop(1,'#0d5f85');
+  ctx.fillStyle=g;ctx.fillRect(0,seaY,W,H-seaY);
+  ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=2*S;ctx.lineCap='round';
+  for(let r=0;r<4;r++){const y=seaY+14*S+r*(H-seaY)/4.2,off=(t*(60+r*30)*S)%(90*S);
+    for(let x=-off+(r%2)*40*S;x<W;x+=90*S){ctx.beginPath();ctx.moveTo(x,y);ctx.quadraticCurveTo(x+10*S,y-5*S,x+20*S,y);ctx.stroke()}}
+}
+function drawIsland(isl){
+  const cx=isl.x+isl.w/2;
+  ctx.fillStyle='rgba(120,230,220,.55)';ctx.beginPath();ctx.ellipse(cx,seaY+4*S,isl.w/2+16*S,9*S,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#f3d585';ctx.beginPath();ctx.ellipse(cx,seaY,isl.w/2,22*S,0,Math.PI,0);ctx.fill();
+  ctx.fillStyle='#e2bd62';ctx.beginPath();ctx.ellipse(cx,seaY,isl.w/2,6*S,0,Math.PI,0);ctx.fill();
+  for(const p of isl.palms)drawPalm(isl.x+p.dx,seaY-islandH(isl,p.dx)+3*S,p.h,p.lean);
+}
+function drawPalm(x,y,h,lean){
+  ctx.save();ctx.translate(x,y);ctx.scale(S,S);
+  ctx.strokeStyle='#8a5a2b';ctx.lineWidth=5;ctx.lineCap='round';
+  const tx=lean*h,ty=-h;ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(tx*.2,-h*.6,tx,ty);ctx.stroke();
+  ctx.fillStyle='#2e8b3e';const sw=Math.sin(t*1.5+x)*.08;
+  for(let i=0;i<5;i++){const a=-Math.PI/2+(i-2)*.7+sw;ctx.save();ctx.translate(tx,ty);ctx.rotate(a);ctx.beginPath();ctx.ellipse(14,0,16,4.5,0,0,Math.PI*2);ctx.fill();ctx.restore()}
+  ctx.fillStyle='#6b4a22';ell(tx-2,ty+3,3,3);ell(tx+3,ty+4,3,3);
+  ctx.restore();
+}
+function drawIguana(x,y,flip,ph,sc){
+  ctx.save();ctx.translate(x,y);const k=S*(sc||1);ctx.scale(flip?-k:k,k);
+  ctx.lineCap='round';
+  ctx.strokeStyle='#3d9a4a';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-8,1);ctx.quadraticCurveTo(-24,6,-34,-3+Math.sin(t*3+ph)*2.5);ctx.stroke();
+  ctx.strokeStyle='#2a6e35';ctx.lineWidth=1.5;for(const d of [-16,-22,-28]){ctx.beginPath();ctx.moveTo(d,1+(d+8)*-.1);ctx.lineTo(d-1,5+(d+8)*-.1);ctx.stroke()}
+  ctx.strokeStyle='#2f7d3b';ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(-6,3);ctx.lineTo(-10,9);ctx.moveTo(8,3);ctx.lineTo(11,9);ctx.stroke();
+  ctx.fillStyle='#55b85f';ell(0,0,13,6.5);ell(15,-3,7.5,5.2);
+  ctx.fillStyle='#2f7d3b';
+  for(let i=0;i<6;i++){const bx=-9+i*4;ctx.beginPath();ctx.moveTo(bx,-5);ctx.lineTo(bx+2,-11);ctx.lineTo(bx+4,-5);ctx.fill()}
+  ctx.fillStyle='#f0a63a';ell(14,2.5,3,3.8);
+  ctx.fillStyle='#fff';ell(18,-4.5,2,2);ctx.fillStyle='#14324a';ell(18.6,-4.5,1.1,1.1);
+  ctx.restore();
+}
+function drawPlane(){
+  ctx.save();
+  let ox=0,oy=0;if(shake>0){ox=rnd(-4,4)*S;oy=rnd(-4,4)*S}
+  ctx.translate(pl.x+ox,pl.y+oy);ctx.rotate(pl.tilt);ctx.scale(S,S);
+  if(inv>0&&Math.floor(inv*10)%2===0)ctx.globalAlpha=.35;
+  // fin
+  ctx.fillStyle='#6f7d5c';ctx.beginPath();ctx.moveTo(-56,-6);ctx.lineTo(-70,-40);ctx.lineTo(-56,-41);ctx.lineTo(-36,-10);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#ff6b4a';ctx.beginPath();ctx.moveTo(-66,-33);ctx.lineTo(-57,-34);ctx.lineTo(-54,-29);ctx.lineTo(-63,-28);ctx.closePath();ctx.fill();
+  // fuselage
+  ctx.fillStyle='#808f6b';ctx.beginPath();
+  ctx.moveTo(-68,-6);ctx.quadraticCurveTo(-42,-14,-10,-14);ctx.lineTo(42,-14);
+  ctx.quadraticCurveTo(64,-13,66,0);ctx.quadraticCurveTo(64,12,42,12);ctx.lineTo(-18,12);
+  ctx.quadraticCurveTo(-46,10,-68,-2);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.13)';ctx.beginPath();ctx.moveTo(-60,2);ctx.quadraticCurveTo(-40,8,-18,6);ctx.lineTo(44,6);ctx.quadraticCurveTo(60,6,64,4);ctx.quadraticCurveTo(62,12,42,12);ctx.lineTo(-18,12);ctx.quadraticCurveTo(-46,10,-66,0);ctx.closePath();ctx.fill();
+  // stabilizer
+  ctx.fillStyle='#5f6c4e';ell(-58,-5,15,3.5);
+  // gear pod
+  ctx.fillStyle='#6b7957';ctx.beginPath();ctx.ellipse(6,11,20,5,0,0,Math.PI);ctx.fill();
+  // ramp line + door
+  ctx.strokeStyle='rgba(0,0,0,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-40,-9);ctx.lineTo(-30,9);ctx.stroke();
+  ctx.strokeRect(30,-8,6,13);
+  // portholes
+  ctx.fillStyle='#29475f';for(let x=-22;x<=24;x+=11)ell(x,-4,1.8,1.8);
+  // cockpit
+  ctx.fillStyle='#1d3b55';ctx.beginPath();ctx.moveTo(47,-12);ctx.lineTo(57,-10);ctx.lineTo(61,-5);ctx.lineTo(48,-5);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)';ctx.fillRect(50,-10,3,2);
+  // wing
+  ctx.fillStyle='#6a7856';ctx.beginPath();ctx.moveTo(-16,-14);ctx.lineTo(34,-14);ctx.quadraticCurveTo(37,-17,34,-20);ctx.lineTo(-12,-20);ctx.quadraticCurveTo(-18,-17,-16,-14);ctx.fill();
+  // engines + props
+  for(const nx of [-2,20]){
+    ctx.fillStyle='#596648';ctx.beginPath();ctx.ellipse(nx+6,-15,10,4.5,0,0,Math.PI*2);ctx.fill();
+    const px=nx+17;ctx.fillStyle='rgba(30,40,40,.18)';ell(px,-15,2.5,15);
+    const a=Math.abs(Math.cos(pl.ph+nx));ctx.fillStyle='#2b2f2f';ctx.fillRect(px-1.2,-15-14*a,2.4,28*a);
+    ctx.fillStyle='#ffb627';ell(px+1,-15,2.4,2.4);
+  }
+  ctx.restore();
+}
+function drawGull(g){
+  ctx.save();ctx.translate(g.x,g.cy);ctx.scale(S,S);
+  const f=Math.sin(g.ph)*7;
+  ctx.strokeStyle='#ffffff';ctx.lineWidth=4;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(-16,-f);ctx.quadraticCurveTo(-8,-6-f*.5,0,0);ctx.quadraticCurveTo(8,-6-f*.5,16,-f);ctx.stroke();
+  ctx.strokeStyle='#14324a';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-16,-f);ctx.lineTo(-13,-f-1);ctx.moveTo(16,-f);ctx.lineTo(13,-f-1);ctx.stroke();
+  ctx.fillStyle='#fff';ell(0,1,6,4);ctx.fillStyle='#ffb627';ctx.beginPath();ctx.moveTo(-6,1);ctx.lineTo(-10,2);ctx.lineTo(-6,3);ctx.fill();
+  ctx.restore();
+}
+function drawStorm(s){
+  const k=s.r/50;
+  if(s.fl>0){ctx.fillStyle='#ffe14d';ctx.beginPath();const x=s.x,y=s.y+14*k;
+    ctx.moveTo(x,y);ctx.lineTo(x-10*k,y+26*k);ctx.lineTo(x-1*k,y+26*k);ctx.lineTo(x-8*k,y+50*k);ctx.lineTo(x+12*k,y+18*k);ctx.lineTo(x+3*k,y+18*k);ctx.lineTo(x+8*k,y);ctx.closePath();ctx.fill()}
+  drawCloud(s.x-50*k,s.y,k*1.25,s.fl>0?'#7b8794':'#5c6773');
+  ctx.fillStyle='rgba(20,30,40,.25)';ell(s.x,s.y+14*k,52*k,10*k);
+}
+function drawCrate(c){
+  ctx.save();ctx.translate(c.x,c.y+(c.bob?Math.sin(c.bob*6)*2*S:0));ctx.scale(S,S);
+  if(!c.bob){const sw=Math.sin(c.ph)*.12;ctx.rotate(sw);
+    ctx.strokeStyle='rgba(20,50,74,.6)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-18,-26);ctx.lineTo(-7,-6);ctx.moveTo(18,-26);ctx.lineTo(7,-6);ctx.moveTo(0,-34);ctx.lineTo(0,-6);ctx.stroke();
+    for(let i=0;i<4;i++){ctx.fillStyle=i%2?'#ffffff':'#ff6b4a';ctx.beginPath();ctx.moveTo(0,-26);ctx.arc(0,-26,20,Math.PI+i*Math.PI/4,Math.PI+(i+1)*Math.PI/4);ctx.closePath();ctx.fill()}}
+  ctx.fillStyle='#d8342a';ctx.beginPath();ctx.roundRect?ctx.roundRect(-9,-8,18,20,3):ctx.rect(-9,-8,18,20);ctx.fill();
+  ctx.fillStyle='#a52219';ctx.fillRect(-5,-12,6,5);
+  ctx.strokeStyle='#ffd34d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-5,-3);ctx.lineTo(5,7);ctx.moveTo(5,-3);ctx.lineTo(-5,7);ctx.stroke();
+  ctx.restore();
+}
+function render(){
+  ctx.clearRect(0,0,W,H);
+  drawSky();drawSea();
+  for(const i of islands)drawIsland(i);
+  for(const i of islands)for(const ig of i.igs)if(!ig.taken)drawIguana(i.x+ig.dx,seaY-islandH(i,ig.dx)-8*S,ig.flip,ig.ph);
+  // low-flight hint ring under iguanas near plane
+  for(const c of crates)drawCrate(c);
+  for(const s of storms)drawStorm(s);
+  for(const g of gulls)drawGull(g);
+  drawPlane();
+  for(const f of flyers){const e=f.t*f.t,x=f.x+(pl.x-f.x)*e,y=f.y+(pl.y-f.y)*e-Math.sin(f.t*Math.PI)*40*S;drawIguana(x,y,f.flip,0,1-f.t*.6)}
+  ctx.textAlign='center';
+  for(const p of pops){ctx.globalAlpha=1-p.t;ctx.font=`800 ${Math.round(22*S)}px 'Baloo 2', sans-serif`;ctx.lineWidth=4*S;ctx.strokeStyle='#fffaf0';ctx.strokeText(p.txt,p.x,p.y-p.t*40*S);ctx.fillStyle=p.col;ctx.fillText(p.txt,p.x,p.y-p.t*40*S);ctx.globalAlpha=1}
+}
+
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(state!=='over')update(dt);
+  render();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+document.addEventListener('visibilitychange',()=>{last=performance.now()});
+})();
+</script>
+
+</body>
+</html>

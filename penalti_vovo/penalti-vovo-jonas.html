@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pênalti do Vovô Jonas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
+<style>
+body{margin:0;}
+/* Layout: estádio noturno em tela cheia; a cena 3D é o palco, a interface fica em placas de giz por cima. Visual único (noite). */
+:root{
+  --noite:#0c1626;
+  --noite-2:#14233a;
+  --gramado:#2e8a4b;
+  --giz:#f7f3e6;
+  --giz-suave:rgba(247,243,230,.72);
+  --rubro:#d8262f;
+  --preto:#141414;
+  --grena:#8b1538;
+  --verde-flu:#0a6a46;
+  --ouro:#ffd23f;
+  --pele:#f2c9a0;
+  --f-display:"Lilita One","Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --f-body:"Nunito","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;}
+[hidden]{display:none!important;}
+body{background:var(--noite);color:var(--giz);font-family:var(--f-body);overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+#palco{position:fixed;inset:0;}
+#palco canvas{display:block;width:100%;height:100%;cursor:crosshair;}
+button{font-family:var(--f-body);cursor:pointer;}
+button:focus-visible{outline:3px solid var(--ouro);outline-offset:3px;}
+
+/* HUD */
+.hud{position:fixed;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none;}
+.placa{background:rgba(12,22,38,.78);border:2px solid rgba(247,243,230,.18);border-radius:14px;padding:8px 14px;backdrop-filter:blur(6px);}
+.placa .rotulo{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--giz-suave);font-weight:800;}
+.placa .nome{font-family:var(--f-display);font-size:20px;line-height:1.1;}
+.chutes{display:flex;gap:6px;margin-top:6px;}
+.chutes span{width:16px;height:16px;border-radius:50%;border:2px solid var(--giz-suave);}
+.chutes span.gol{background:var(--rubro);border-color:var(--rubro);box-shadow:0 0 0 2px var(--preto) inset;}
+.chutes span.perdeu{background:var(--verde-flu);border-color:var(--grena);}
+.placar{font-family:var(--f-display);font-size:28px;font-variant-numeric:tabular-nums;text-align:right;line-height:1;}
+.hud-dir{display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+#som{pointer-events:auto;background:rgba(12,22,38,.78);border:2px solid rgba(247,243,230,.18);color:var(--giz);border-radius:999px;padding:6px 12px;font-weight:800;font-size:13px;}
+
+.dica{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);transform:translateX(-50%);background:rgba(12,22,38,.8);border-radius:999px;padding:9px 18px;font-weight:800;font-size:15px;white-space:nowrap;pointer-events:none;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis;}
+
+.faixa{position:fixed;left:50%;top:34%;transform:translate(-50%,-50%) scale(.6);opacity:0;font-family:var(--f-display);font-size:clamp(40px,11vw,96px);text-align:center;line-height:1;pointer-events:none;transition:transform .35s cubic-bezier(.2,1.6,.4,1),opacity .2s;text-shadow:0 4px 0 rgba(0,0,0,.45);white-space:nowrap;}
+.faixa.on{opacity:1;transform:translate(-50%,-50%) scale(1);}
+.faixa small{display:block;font-family:var(--f-body);font-weight:900;font-size:clamp(15px,3.6vw,22px);margin-top:10px;text-shadow:0 2px 0 rgba(0,0,0,.5);}
+.faixa.gol{color:var(--ouro);}
+.faixa.defesa{color:#fff;}
+.faixa.fora{color:var(--giz-suave);}
+
+/* Telas */
+.tela{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding-block:calc(env(safe-area-inset-top,0px) + 20px) calc(env(safe-area-inset-bottom,0px) + 20px);padding-inline:16px;background:radial-gradient(120% 90% at 50% 0%,rgba(20,35,58,.55),rgba(12,22,38,.94));overflow-y:auto;}
+.cartaz{width:100%;max-width:760px;display:flex;flex-direction:column;gap:20px;align-items:center;text-align:center;margin:auto;}
+.titulo{font-family:var(--f-display);font-size:clamp(36px,8vw,64px);line-height:.95;text-wrap:balance;margin:0;}
+.titulo em{font-style:normal;color:var(--ouro);}
+.goleiro-linha{display:flex;align-items:center;gap:12px;background:rgba(247,243,230,.06);border-radius:16px;padding:10px 16px 10px 10px;max-width:520px;text-align:left;}
+.goleiro-linha p{margin:0;font-size:15px;line-height:1.4;color:var(--giz-suave);}
+.goleiro-linha strong{color:var(--giz);}
+.pergunta{font-family:var(--f-display);font-size:24px;margin:4px 0 0;}
+.cartas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;width:100%;}
+@media (max-width:520px){.cartas{grid-template-columns:1fr;}}
+.carta{position:relative;background:var(--noite-2);border:3px solid rgba(247,243,230,.14);border-radius:22px;padding:18px 16px 18px;color:var(--giz);display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .15s,border-color .15s;text-align:center;}
+.carta:hover{transform:translateY(-4px);border-color:var(--rubro);}
+.carta .camisa-num{position:absolute;top:12px;right:14px;font-family:var(--f-display);font-size:30px;color:rgba(247,243,230,.16);}
+.carta h3{font-family:var(--f-display);font-size:30px;margin:4px 0 0;font-weight:400;}
+.carta .ficha{font-size:14px;color:var(--giz-suave);font-weight:800;}
+.carta .chute{font-size:14px;line-height:1.35;background:rgba(0,0,0,.25);border-radius:10px;padding:8px 10px;width:100%;}
+.carta .chute b{color:var(--ouro);}
+.carta .bater{margin-top:4px;font-family:var(--f-display);font-size:18px;background:var(--rubro);color:#fff;border-radius:999px;padding:8px 22px;box-shadow:0 4px 0 #7c1016;}
+
+/* Avatares em CSS */
+.avatar{--cabelo:#e8c45a;--esc:1;position:relative;width:calc(96px*var(--esc));height:calc(110px*var(--esc));flex:none;}
+.avatar .corpo{position:absolute;left:50%;bottom:0;width:72%;height:38%;transform:translateX(-50%);border-radius:40% 40% 10px 10px;background:repeating-linear-gradient(180deg,var(--rubro) 0 9%,var(--preto) 9% 18%);}
+.avatar .rosto{position:absolute;left:50%;top:10%;width:64%;height:56%;transform:translateX(-50%);background:var(--pele);border-radius:50%;}
+.avatar .rosto::before,.avatar .rosto::after{content:"";position:absolute;top:46%;width:9%;height:11%;background:#2b1d14;border-radius:50%;}
+.avatar .rosto::before{left:30%;}.avatar .rosto::after{right:30%;}
+.avatar .boca{position:absolute;left:50%;top:50%;width:22%;height:10%;transform:translateX(-50%);border-bottom:3px solid #a3473a;border-radius:0 0 50% 50%;z-index:2;}
+.avatar .cabelo{position:absolute;left:50%;top:4%;width:70%;height:32%;transform:translateX(-50%);background:var(--cabelo);border-radius:50% 50% 30% 30%/80% 80% 25% 25%;z-index:1;}
+.avatar.davi .cabelo{border-radius:50% 50% 40% 40%/90% 90% 30% 30%;}
+.avatar.davi .rosto{width:68%;}
+.avatar.vovo{--esc:.62;}
+.avatar.vovo .corpo{background:repeating-linear-gradient(90deg,var(--grena) 0 14%,#fff 14% 18%,var(--verde-flu) 18% 32%,#fff 32% 36%);}
+.avatar.vovo .cabelo{top:22%;width:74%;height:22%;background:transparent;border:5px solid #f2f2f2;border-top:none;border-radius:0 0 50% 50%;}
+.avatar.vovo .bigode{position:absolute;left:50%;top:50%;width:34%;height:9%;transform:translateX(-50%);background:#f2f2f2;border-radius:50% 50% 30% 30%;z-index:3;}
+.avatar.vovo .oculos{position:absolute;left:50%;top:32%;width:46%;height:14%;transform:translateX(-50%);z-index:3;display:flex;justify-content:space-between;}
+.avatar.vovo .oculos i{width:44%;border:2px solid #222;border-radius:50%;}
+
+.fim .grande{font-family:var(--f-display);font-size:clamp(34px,8vw,58px);line-height:1;margin:0;text-wrap:balance;}
+.fim .sub{font-size:17px;color:var(--giz-suave);max-width:46ch;margin:0;line-height:1.45;}
+.botoes{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.btn{font-family:var(--f-display);font-size:19px;border:none;border-radius:999px;padding:12px 26px;}
+.btn.prim{background:var(--rubro);color:#fff;box-shadow:0 4px 0 #7c1016;}
+.btn.sec{background:transparent;color:var(--giz);border:2px solid rgba(247,243,230,.4);}
+@media (prefers-reduced-motion:reduce){.faixa,.carta{transition:none;}}
+</style>
+
+</head>
+<body>
+<div id="palco"></div>
+
+<div class="hud" id="hud" hidden>
+  <div class="placa">
+    <div class="rotulo">Batedor</div>
+    <div class="nome" id="hudNome">Gabriel</div>
+    <div class="chutes" id="chutes"></div>
+  </div>
+  <div class="hud-dir">
+    <div class="placa">
+      <div class="rotulo">Gols</div>
+      <div class="placar" id="placar">0 / 5</div>
+    </div>
+    <button id="som" type="button" aria-pressed="true">Som: ligado</button>
+  </div>
+</div>
+<div class="dica" id="dica" hidden>Toque no gol onde quer chutar</div>
+<div class="faixa" id="faixa"></div>
+
+<div class="tela" id="telaEscolha">
+  <div class="cartaz">
+    <h1 class="titulo">Pênalti do <em>Vovô Jonas</em></h1>
+    <div class="goleiro-linha">
+      <div class="avatar vovo"><div class="corpo"></div><div class="rosto"></div><div class="cabelo"></div><div class="oculos"><i></i><i></i></div><div class="bigode"></div><div class="boca"></div></div>
+      <p><strong>Vovô Jonas</strong> está no gol com a camisa tricolor do Fluminense. São 5 cobranças. Faça 3 gols para o Flamengo vencer!</p>
+    </div>
+    <p class="pergunta">Quem vai bater os pênaltis?</p>
+    <div class="cartas">
+      <button class="carta" type="button" data-jogador="gabriel" id="escolheGabriel">
+        <span class="camisa-num">7</span>
+        <div class="avatar" style="--cabelo:#ecc95c"><div class="corpo"></div><div class="rosto"></div><div class="cabelo"></div><div class="boca"></div></div>
+        <h3>Gabriel</h3>
+        <div class="ficha">7 anos · loiro · flamenguista</div>
+        <div class="chute"><b>Chute forte e rápido.</b> O vovô quase não tem tempo de pular.</div>
+        <span class="bater">Escolher Gabriel</span>
+      </button>
+      <button class="carta" type="button" data-jogador="davi" id="escolheDavi">
+        <span class="camisa-num">3</span>
+        <div class="avatar davi" style="--cabelo:#b0845a;--esc:.86"><div class="corpo"></div><div class="rosto"></div><div class="cabelo"></div><div class="boca"></div></div>
+        <h3>Davi</h3>
+        <div class="ficha">3 anos · cabelo castanho claro · flamenguista</div>
+        <div class="chute"><b>Chute fraquinho e meio torto.</b> Mas o vovô pega leve com o netinho.</div>
+        <span class="bater">Escolher Davi</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="tela fim" id="telaFim" hidden>
+  <div class="cartaz">
+    <p class="grande" id="fimTitulo">Gabriel venceu!</p>
+    <p class="sub" id="fimSub"></p>
+    <div class="botoes">
+      <button class="btn prim" type="button" id="deNovo">Jogar de novo</button>
+      <button class="btn sec" type="button" id="trocar">Trocar jogador</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const GOAL_W=7.32, GOAL_H=2.44, HALF=GOAL_W/2;
+const BALL_R=0.11, SPOT_Z=11;
+const TOTAL=5;
+
+const JOGADORES={
+  gabriel:{nome:"Gabriel",numero:"7",escala:1,cabelo:0xecc95c,cachos:false,gordinho:false,
+    tempoVoo:0.55,mira:0.06,palpite:0.5,reacao:0.15,raio:0.36,extra:1.2},
+  davi:{nome:"Davi",numero:"3",escala:0.74,cabelo:0xb0845a,cachos:true,gordinho:true,
+    tempoVoo:1.0,mira:0.4,palpite:0.28,reacao:0.25,raio:0.34,extra:1.0}
+};
+
+/* ---------- Renderizador e cena ---------- */
+const palco=$("palco");
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+palco.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0c1626);
+scene.fog=new THREE.Fog(0x0c1626,45,120);
+
+const camera=new THREE.PerspectiveCamera(45,1,0.1,300);
+const CAM_POS=new THREE.Vector3(0,1.9,17.6), CAM_ALVO=new THREE.Vector3(0,1.25,0);
+
+scene.add(new THREE.HemisphereLight(0xbfd4ff,0x1d3b22,0.75));
+const sol=new THREE.DirectionalLight(0xffffff,0.95);
+sol.position.set(-8,22,18);
+sol.castShadow=true;
+sol.shadow.mapSize.set(1024,1024);
+Object.assign(sol.shadow.camera,{left:-14,right:14,top:14,bottom:-6,near:1,far:60});
+scene.add(sol);
+const contra=new THREE.DirectionalLight(0xfff1d0,0.35);
+contra.position.set(10,15,-20);scene.add(contra);
+
+function canvasTex(w,h,draw,repeat){
+  const c=document.createElement("canvas");c.width=w;c.height=h;
+  draw(c.getContext("2d"),w,h);
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;
+  t.anisotropy=4;
+  if(repeat){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(repeat[0],repeat[1]);}
+  return t;
+}
+const mat=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:0.75},o||{}));
+
+/* Gramado listrado */
+const gramaTex=canvasTex(64,512,(g,w,h)=>{
+  for(let i=0;i<8;i++){g.fillStyle=i%2?"#2f8c4c":"#287e43";g.fillRect(0,i*h/8,w,h/8);}
+},[1,6]);
+const gramado=new THREE.Mesh(new THREE.PlaneGeometry(140,110),mat(0xffffff,{map:gramaTex,roughness:0.95}));
+gramado.rotation.x=-Math.PI/2;gramado.position.z=20;gramado.receiveShadow=true;scene.add(gramado);
+
+const giz=new THREE.MeshBasicMaterial({color:0xf2f0e6});
+function linha(x,z,w,d){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),giz);m.rotation.x=-Math.PI/2;m.position.set(x,0.01,z);scene.add(m);}
+linha(0,0,80,0.12);
+linha(0,5.5,18.32,0.12);linha(-9.16,2.75,0.12,5.5);linha(9.16,2.75,0.12,5.5);
+linha(0,16.5,40.32,0.12);linha(-20.16,8.25,0.12,16.5);linha(20.16,8.25,0.12,16.5);
+{const m=new THREE.Mesh(new THREE.CircleGeometry(0.14,20),giz);m.rotation.x=-Math.PI/2;m.position.set(0,0.012,SPOT_Z);scene.add(m);}
+{const a=Math.acos(5.5/9.15);const m=new THREE.Mesh(new THREE.RingGeometry(9.09,9.21,48,1,1.5*Math.PI-a,2*a),giz);m.rotation.x=-Math.PI/2;m.position.set(0,0.01,SPOT_Z);scene.add(m);}
+
+/* Gol */
+const branco=mat(0xffffff,{roughness:0.35});
+function cil(r,h,m){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,14),m);o.castShadow=true;return o;}
+[-HALF,HALF].forEach(x=>{const p=cil(0.06,GOAL_H,branco);p.position.set(x,GOAL_H/2,0);scene.add(p);
+  const b=cil(0.03,GOAL_H,mat(0xcfd6dd));b.position.set(x,GOAL_H/2,-1.9);scene.add(b);
+  const t=cil(0.03,1.9,mat(0xcfd6dd));t.rotation.x=Math.PI/2;t.position.set(x,GOAL_H,-0.95);scene.add(t);});
+{const t=cil(0.06,GOAL_W+0.12,branco);t.rotation.z=Math.PI/2;t.position.set(0,GOAL_H,0);scene.add(t);}
+const redeTex=canvasTex(64,64,(g,w,h)=>{g.clearRect(0,0,w,h);g.strokeStyle="rgba(255,255,255,.85)";g.lineWidth=3;
+  g.beginPath();g.moveTo(0,0);g.lineTo(w,h);g.moveTo(w,0);g.lineTo(0,h);g.stroke();},[1,1]);
+function rede(w,h,rx,ry){const t=redeTex.clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,ry);
+  return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t,transparent:true,side:THREE.DoubleSide,depthWrite:false,opacity:0.8}));}
+const redeFundo=rede(GOAL_W,GOAL_H,36,12);redeFundo.position.set(0,GOAL_H/2,-1.9);scene.add(redeFundo);
+{const r=rede(GOAL_W,1.9,36,10);r.rotation.x=Math.PI/2;r.position.set(0,GOAL_H,-0.95);scene.add(r);}
+[-HALF,HALF].forEach(x=>{const r=rede(1.9,GOAL_H,10,12);r.rotation.y=Math.PI/2;r.position.set(x,GOAL_H/2,-0.95);scene.add(r);});
+
+/* Arquibancada com torcida */
+const torcidaTex=canvasTex(2048,256,(g,w,h)=>{
+  g.fillStyle="#0f1a2b";g.fillRect(0,0,w,h);
+  const blocos=[["#d8262f","#141414","#d8262f","#f2f2f2"],["#8b1538","#ffffff","#0a6a46","#8b1538"]];
+  for(let y=6;y<h;y+=9){for(let x=4;x<w;x+=8){
+    const lado=Math.floor(x/(w/6))%2;const p=blocos[lado];
+    g.fillStyle=Math.random()<0.18?"#f2c9a0":p[(Math.random()*p.length)|0];
+    g.globalAlpha=0.5+Math.random()*0.5;g.fillRect(x+(Math.random()*2|0),y,5,6);}}
+  g.globalAlpha=1;g.fillStyle="#1d2c44";for(let y=0;y<h;y+=36)g.fillRect(0,y,w,3);
+},[3,1]);
+const arquibancada=new THREE.Mesh(new THREE.CylinderGeometry(62,48,22,64,1,true,Math.PI*0.62,Math.PI*0.76),
+  new THREE.MeshBasicMaterial({map:torcidaTex,side:THREE.BackSide,fog:true}));
+arquibancada.position.set(0,10,14);scene.add(arquibancada);
+const placaPub=new THREE.Mesh(new THREE.BoxGeometry(60,0.9,0.2),mat(0x14233a,{emissive:0x0a1220}));placaPub.position.set(0,0.45,-6);scene.add(placaPub);
+{const faixaTex=canvasTex(1024,64,(g,w,h)=>{g.fillStyle="#14233a";g.fillRect(0,0,w,h);g.font="900 38px Nunito, sans-serif";g.textBaseline="middle";
+  const frases=["DOMINGO É DIA DE PÊNALTI","VOVÔ JONAS NO GOL","FAMÍLIA EM CAMPO"];let x=10;let i=0;
+  while(x<w){g.fillStyle=i%2?"#ffd23f":"#f7f3e6";const f=frases[i%3];g.fillText(f,x,h/2+2);x+=g.measureText(f).width+50;i++;}});
+ const f=new THREE.Mesh(new THREE.PlaneGeometry(30,0.85),new THREE.MeshBasicMaterial({map:faixaTex}));f.position.set(0,0.46,-5.88);scene.add(f);}
+[-30,-12,12,30].forEach(x=>{const torre=new THREE.Mesh(new THREE.BoxGeometry(3,1.2,0.4),new THREE.MeshBasicMaterial({color:0xfffbe8}));torre.position.set(x,24,-38);scene.add(torre);});
+
+/* ---------- Texturas de camisa ---------- */
+function camisaTex(tipo,nome,numero){
+  return canvasTex(512,256,(g,w,h)=>{
+    if(tipo==="fla"){for(let i=0;i<10;i++){g.fillStyle=i%2?"#141414":"#d8262f";g.fillRect(0,i*h/10,w,h/10);}}
+    else{const cores=["#8b1538","#ffffff","#0a6a46","#ffffff"];const larg=[34,8,34,8];let x=0,i=0;
+      while(x<w){g.fillStyle=cores[i%4];g.fillRect(x,0,larg[i%4],h);x+=larg[i%4];i++;}}
+    if(nome){g.textAlign="center";g.lineJoin="round";
+      g.font="900 40px Nunito, sans-serif";g.lineWidth=8;g.strokeStyle="#141414";g.strokeText(nome.toUpperCase(),w/2,62);g.fillStyle="#fff";g.fillText(nome.toUpperCase(),w/2,62);
+      g.font="900 120px Nunito, sans-serif";g.lineWidth=10;g.strokeText(numero,w/2,190);g.fillText(numero,w/2,190);}
+  });
+}
+const bolaTex=canvasTex(256,128,(g,w,h)=>{g.fillStyle="#fafafa";g.fillRect(0,0,w,h);g.fillStyle="#1a1a1a";
+  [[30,30],[95,64],[160,30],[225,64],[62,100],[190,100],[128,100],[128,14]].forEach(([x,y])=>{g.beginPath();
+    for(let k=0;k<5;k++){const a=k/5*Math.PI*2-Math.PI/2;g.lineTo(x+13*Math.cos(a),y+13*Math.sin(a));}g.fill();});});
+
+/* ---------- Bola ---------- */
+const bola=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,24,16),mat(0xffffff,{map:bolaTex,roughness:0.4}));
+bola.castShadow=true;scene.add(bola);
+
+/* ---------- Mira ---------- */
+const mira=new THREE.Mesh(new THREE.RingGeometry(0.2,0.29,36),new THREE.MeshBasicMaterial({color:0xffd23f,depthTest:false,transparent:true,opacity:0.95}));
+mira.renderOrder=10;mira.visible=false;scene.add(mira);
+{const p=new THREE.Mesh(new THREE.CircleGeometry(0.05,16),mira.material);mira.add(p);}
+
+/* ---------- Personagens ---------- */
+function sombra(o){o.traverse(m=>{if(m.isMesh)m.castShadow=true;});return o;}
+const PELE=0xf2c9a0;
+
+function criaCrianca(cfg){
+  const root=new THREE.Group();
+  const corpo=new THREE.Group();root.add(corpo);
+  const esc=cfg.escala;corpo.scale.setScalar(esc);
+  const gord=cfg.gordinho?1.12:1;
+  const camisa=mat(0xffffff,{map:camisaTex("fla",cfg.nome,cfg.numero)});
+  const preto=mat(0x161616), pele=mat(PELE), meiao=mat(0xd8262f), chuteira=mat(0x111111);
+  function perna(lado){
+    const g=new THREE.Group();g.position.set(0.1*lado,0.62,0);
+    const coxa=new THREE.Mesh(new THREE.CylinderGeometry(0.1*gord,0.09*gord,0.24,12),preto);coxa.position.y=-0.1;g.add(coxa);
+    const canela=new THREE.Mesh(new THREE.CylinderGeometry(0.065*gord,0.06,0.2,10),pele);canela.position.y=-0.3;g.add(canela);
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(0.068,0.066,0.14,10),meiao);m.position.y=-0.47;g.add(m);
+    const c=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.08,0.22),chuteira);c.position.set(0,-0.57,-0.04);g.add(c);
+    corpo.add(g);return g;}
+  function braco(lado){
+    const g=new THREE.Group();g.position.set(0.24*gord*lado,0.98,0);
+    const manga=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.06,0.16,10),mat(0xd8262f));manga.position.y=-0.07;g.add(manga);
+    const ante=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.045,0.2,10),pele);ante.position.y=-0.24;g.add(ante);
+    const mao=new THREE.Mesh(new THREE.SphereGeometry(0.055,10,8),pele);mao.position.y=-0.36;g.add(mao);
+    corpo.add(g);return g;}
+  const pernaE=perna(-1),pernaD=perna(1);
+  const tronco=new THREE.Mesh(new THREE.CylinderGeometry(0.19*gord,0.21*gord,0.42,24,1,false,Math.PI,Math.PI*2),camisa);
+  tronco.position.y=0.82;corpo.add(tronco);
+  const bracoE=braco(-1),bracoD=braco(1);
+  const pesc=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.08,10),pele);pesc.position.y=1.06;corpo.add(pesc);
+  const cabeca=new THREE.Group();cabeca.position.y=1.24;corpo.add(cabeca);
+  cabeca.add(new THREE.Mesh(new THREE.SphereGeometry(0.2,24,18),pele));
+  const cab=mat(cfg.cabelo,{roughness:0.9});
+  const cabelo=new THREE.Mesh(new THREE.SphereGeometry(0.214,24,16,0,Math.PI*2,0,Math.PI*0.56),cab);
+  cabelo.rotation.x=0.45;cabelo.position.y=0.01;cabeca.add(cabelo);
+  const franja=new THREE.Mesh(new THREE.SphereGeometry(0.205,20,10,0,Math.PI*2,0,Math.PI*0.3),cab);
+  franja.rotation.x=-0.5;franja.position.set(0,0.03,0);cabeca.add(franja);
+  if(cfg.cachos){for(let i=0;i<14;i++){const a=i/14*Math.PI*2;const s=new THREE.Mesh(new THREE.SphereGeometry(0.06,8,6),cab);
+    s.position.set(Math.cos(a)*0.17,0.1+Math.sin(i*1.7)*0.03,Math.sin(a)*0.15+0.02);cabeca.add(s);}}
+  [-1,1].forEach(l=>{const o=new THREE.Mesh(new THREE.SphereGeometry(0.045,8,6),pele);o.position.set(0.2*l,-0.01,0.01);cabeca.add(o);
+    const olho=new THREE.Mesh(new THREE.SphereGeometry(0.026,8,6),mat(0x2b1d14));olho.position.set(0.07*l,0.0,-0.185);cabeca.add(olho);
+    const boch=new THREE.Mesh(new THREE.SphereGeometry(0.035,8,6),mat(0xf0a28a));boch.position.set(0.11*l,-0.06,-0.16);cabeca.add(boch);});
+  const sorriso=new THREE.Mesh(new THREE.TorusGeometry(0.05,0.012,6,12,Math.PI),mat(0xa3473a));sorriso.rotation.z=Math.PI;sorriso.position.set(0,-0.07,-0.19);cabeca.add(sorriso);
+  sombra(root);
+  return {root,corpo,pernaE,pernaD,bracoE,bracoD,cabeca};
+}
+
+function criaVovo(){
+  const root=new THREE.Group();
+  const camisa=mat(0xffffff,{map:camisaTex("flu")});
+  const shortB=mat(0xf4f4f4), pele=mat(0xe8b994), meiao=mat(0xf4f4f4), chut=mat(0x111111), luva=mat(0xc9f03a,{roughness:0.5}), cabeloB=mat(0xeeeeee,{roughness:0.95});
+  function perna(lado){
+    const g=new THREE.Group();g.position.set(0.14*lado,0.88,0);
+    const coxa=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.12,0.3,12),shortB);coxa.position.y=-0.12;g.add(coxa);
+    const canela=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.07,0.28,10),pele);canela.position.y=-0.4;g.add(canela);
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.078,0.2,10),meiao);m.position.y=-0.62;g.add(m);
+    const c=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.09,0.27),chut);c.position.set(0,-0.8,0.05);g.add(c);
+    root.add(g);return g;}
+  function braco(lado){
+    const g=new THREE.Group();g.position.set(0.34*lado,1.45,0);
+    const manga=new THREE.Mesh(new THREE.CylinderGeometry(0.085,0.075,0.24,10),mat(0x8b1538));manga.position.y=-0.1;g.add(manga);
+    const ante=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.055,0.26,10),pele);ante.position.y=-0.34;g.add(ante);
+    const l=new THREE.Mesh(new THREE.SphereGeometry(0.1,12,10),luva);l.scale.set(1,1.15,0.7);l.position.y=-0.52;g.add(l);
+    root.add(g);return {g,l};}
+  const pernaE=perna(-1),pernaD=perna(1);
+  const tronco=new THREE.Mesh(new THREE.CylinderGeometry(0.27,0.33,0.62,24,1,false,Math.PI,Math.PI*2),camisa);tronco.position.y=1.17;root.add(tronco);
+  const barriga=new THREE.Mesh(new THREE.SphereGeometry(0.3,20,14),camisa);barriga.scale.set(1,0.8,0.85);barriga.position.set(0,1.04,0.06);root.add(barriga);
+  const E=braco(-1),D=braco(1);
+  const cabeca=new THREE.Group();cabeca.position.y=1.68;root.add(cabeca);
+  cabeca.add(new THREE.Mesh(new THREE.SphereGeometry(0.17,24,18),pele));
+  const cab=new THREE.Mesh(new THREE.SphereGeometry(0.178,24,10,Math.PI/2+0.75,Math.PI*2-1.5,Math.PI*0.42,Math.PI*0.24),cabeloB);cabeca.add(cab);
+  const bigode=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.15,10),cabeloB);
+  bigode.rotation.z=Math.PI/2;bigode.position.set(0,-0.05,0.155);cabeca.add(bigode);
+  const nariz=new THREE.Mesh(new THREE.SphereGeometry(0.035,10,8),mat(0xd99a7a));nariz.position.set(0,0.0,0.17);cabeca.add(nariz);
+  const aro=mat(0x222222,{roughness:0.3});
+  [-1,1].forEach(l=>{const o=new THREE.Mesh(new THREE.TorusGeometry(0.045,0.009,6,20),aro);o.position.set(0.065*l,0.04,0.16);cabeca.add(o);
+    const olho=new THREE.Mesh(new THREE.SphereGeometry(0.018,8,6),mat(0x2b1d14));olho.position.set(0.065*l,0.04,0.155);cabeca.add(olho);
+    const sob=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.018,0.02),cabeloB);sob.position.set(0.065*l,0.105,0.155);sob.rotation.z=-0.15*l;cabeca.add(sob);
+    const orelha=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,6),pele);orelha.position.set(0.17*l,0,0);cabeca.add(orelha);});
+  {const ponte=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.008,0.008),aro);ponte.position.set(0,0.045,0.165);cabeca.add(ponte);}
+  sombra(root);
+  return {root,pernaE,pernaD,bracoE:E.g,bracoD:D.g,luvaE:E.l,luvaD:D.l,cabeca};
+}
+
+const vovo=criaVovo();scene.add(vovo.root);
+const VOVO_Z=0.3;
+let batedor=null, cfg=null;
+
+/* ---------- Áudio simples ---------- */
+let AC=null, master=null, torcidaGain=null, somLigado=true;
+function iniciaAudio(){
+  if(AC){if(AC.state==="suspended")AC.resume();return;}
+  try{
+    AC=new (window.AudioContext||window.webkitAudioContext)();
+    master=AC.createGain();master.gain.value=0.8;master.connect(AC.destination);
+    const buf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    const src=AC.createBufferSource();src.buffer=buf;src.loop=true;
+    const f=AC.createBiquadFilter();f.type="bandpass";f.frequency.value=850;f.Q.value=0.5;
+    torcidaGain=AC.createGain();torcidaGain.gain.value=0.05;
+    src.connect(f);f.connect(torcidaGain);torcidaGain.connect(master);src.start();
+  }catch(e){AC=null;}
+}
+function torcida(nivel){if(!AC)return;const t=AC.currentTime;const g=torcidaGain.gain;
+  g.cancelScheduledValues(t);g.setValueAtTime(g.value,t);g.linearRampToValueAtTime(nivel,t+0.15);g.linearRampToValueAtTime(0.05,t+2.6);}
+function tom(freq,dur,tipo,vol,desliza){if(!AC)return;const t=AC.currentTime;const o=AC.createOscillator();const g=AC.createGain();
+  o.type=tipo;o.frequency.setValueAtTime(freq,t);if(desliza)o.frequency.exponentialRampToValueAtTime(desliza,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(master);o.start(t);o.stop(t+dur+0.02);}
+function apito(){tom(2900,0.22,"square",0.05);setTimeout(()=>tom(2900,0.35,"square",0.05),260);}
+function chute(){tom(140,0.18,"sine",0.6,50);}
+function batida(){tom(90,0.14,"triangle",0.4,40);}
+function trave(){tom(1250,0.6,"triangle",0.25);tom(1880,0.4,"sine",0.12);}
+$("som").addEventListener("click",()=>{somLigado=!somLigado;if(master)master.gain.value=somLigado?0.8:0;
+  $("som").textContent="Som: "+(somLigado?"ligado":"desligado");$("som").setAttribute("aria-pressed",String(somLigado));});
+
+/* ---------- Estado do jogo ---------- */
+let estado="escolha", t0=0, relogio=0;
+let tentativa=0, gols=0, resultados=[];
+const alvo=new THREE.Vector3(), inicioBola=new THREE.Vector3(0,BALL_R,SPOT_Z), vel=new THREE.Vector3();
+let mergulho=null, desfecho=null, voando=false, comemora=null;
+const BATEDOR_INI=new THREE.Vector3(-1.1,0,13.0);
+let batedorChute=new THREE.Vector3();
+
+function montaChutes(){
+  const c=$("chutes");c.innerHTML="";
+  for(let i=0;i<TOTAL;i++){const s=document.createElement("span");if(resultados[i])s.className=resultados[i];c.appendChild(s);}
+  $("placar").textContent=gols+" / "+TOTAL;
+}
+
+function escolher(id){
+  iniciaAudio();
+  cfg=JOGADORES[id];
+  if(batedor)scene.remove(batedor.root);
+  batedor=criaCrianca(cfg);scene.add(batedor.root);
+  batedorChute.set(-0.2*cfg.escala-0.02,0,SPOT_Z+0.28);
+  $("hudNome").textContent=cfg.nome;
+  $("telaEscolha").hidden=true;$("telaFim").hidden=true;
+  $("hud").hidden=false;
+  tentativa=0;gols=0;resultados=[];montaChutes();
+  novaCobranca();
+}
+document.querySelectorAll(".carta").forEach(b=>b.addEventListener("click",()=>escolher(b.dataset.jogador)));
+$("deNovo").addEventListener("click",()=>escolher(cfg===JOGADORES.davi?"davi":"gabriel"));
+$("trocar").addEventListener("click",()=>{$("telaFim").hidden=true;$("hud").hidden=true;$("dica").hidden=true;estado="escolha";$("telaEscolha").hidden=false;});
+
+function poseVovo(){
+  const v=vovo;v.root.position.set(0,0,VOVO_Z);v.root.rotation.set(0,0,0);
+  v.bracoE.rotation.set(0,0,-0.9);v.bracoD.rotation.set(0,0,0.9);
+  v.pernaE.rotation.set(0,0,-0.12);v.pernaD.rotation.set(0,0,0.12);
+}
+function poseBatedor(){
+  const b=batedor;b.root.position.copy(BATEDOR_INI);b.root.rotation.set(0,0.35,0);
+  [b.pernaE,b.pernaD,b.bracoE,b.bracoD].forEach(p=>p.rotation.set(0,0,0));
+  b.bracoE.rotation.z=-0.15;b.bracoD.rotation.z=0.15;b.corpo.position.y=0;
+}
+function novaCobranca(){
+  poseVovo();poseBatedor();
+  bola.position.copy(inicioBola);bola.rotation.set(0,0,0);
+  mergulho=null;desfecho=null;voando=false;comemora=null;
+  $("faixa").className="faixa";
+  $("dica").textContent=("ontouchstart" in window?"Toque":"Clique")+" no gol onde "+cfg.nome+" vai chutar";
+  $("dica").hidden=false;
+  estado="mirando";t0=relogio;
+  apito();
+}
+
+/* ---------- Mira com ponteiro ---------- */
+const ray=new THREE.Raycaster(), ponteiro=new THREE.Vector2(), planoGol=new THREE.Plane(new THREE.Vector3(0,0,1),0);
+function pontoNoGol(ev){
+  const r=renderer.domElement.getBoundingClientRect();
+  ponteiro.set(((ev.clientX-r.left)/r.width)*2-1,-((ev.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ponteiro,camera);
+  const p=new THREE.Vector3();if(!ray.ray.intersectPlane(planoGol,p))return null;
+  p.x=THREE.MathUtils.clamp(p.x,-7,7);p.y=THREE.MathUtils.clamp(p.y,BALL_R,4.5);p.z=0;return p;
+}
+renderer.domElement.addEventListener("pointermove",ev=>{
+  if(estado!=="mirando"||ev.pointerType==="touch"){return;}
+  const p=pontoNoGol(ev);if(p){mira.visible=true;mira.position.set(p.x,p.y,0.05);}
+});
+renderer.domElement.addEventListener("pointerleave",()=>{mira.visible=false;});
+renderer.domElement.addEventListener("click",ev=>{
+  if(estado!=="mirando")return;
+  const p=pontoNoGol(ev);if(!p)return;
+  iniciaAudio();
+  const erro=cfg.mira;
+  alvo.set(p.x+(Math.random()*2-1)*erro,Math.max(BALL_R,p.y+(Math.random()*2-1)*erro*0.7),0);
+  mira.visible=true;mira.position.set(p.x,p.y,0.05);
+  estado="correndo";t0=relogio;$("dica").hidden=true;
+});
+
+/* ---------- Decisão do goleiro ---------- */
+function planejaMergulho(){
+  let dx,dy;
+  if(Math.random()<cfg.palpite){dx=alvo.x+(Math.random()*2-1)*0.3;dy=alvo.y+(Math.random()*2-1)*0.25;}
+  else{const op=[[-2.6,0.5],[2.6,0.5],[-2,1.8],[2,1.8],[0,1.5],[-1.2,0.3],[1.2,0.3]];const o=op[(Math.random()*op.length)|0];dx=o[0];dy=o[1];}
+  dx=THREE.MathUtils.clamp(dx,-3.3,3.3);dy=THREE.MathUtils.clamp(dy,0.2,2.6);
+  const L=Math.max(0.01,Math.hypot(dx,dy));
+  let ang=Math.atan2(-dx,dy);ang=THREE.MathUtils.clamp(ang,-1.45,1.45);
+  const extra=THREE.MathUtils.clamp(L-1.95,0,cfg.extra);
+  const dirx=-Math.sin(ang), diry=Math.cos(ang);
+  mergulho={ang,ox:dirx*extra,oy:Math.max(0,diry*extra-0.05),inicio:relogio+cfg.reacao,dur:0.48};
+}
+function aplicaMergulho(p){
+  const e=1-Math.pow(1-p,3);
+  const v=vovo,m=mergulho;
+  v.root.position.set(m.ox*e,m.oy*e,VOVO_Z);
+  v.root.rotation.z=m.ang*e;
+  v.bracoE.rotation.z=THREE.MathUtils.lerp(-0.9,-2.95,e);
+  v.bracoD.rotation.z=THREE.MathUtils.lerp(0.9,2.95,e);
+  v.pernaE.rotation.z=-0.12-0.3*e;v.pernaD.rotation.z=0.12+0.3*e;
+}
+
+function distSegmento(p,a,b){const ab=b.clone().sub(a);const t=THREE.MathUtils.clamp(p.clone().sub(a).dot(ab)/ab.lengthSq(),0,1);return p.distanceTo(a.clone().add(ab.multiplyScalar(t)));}
+
+function resolve(){
+  vovo.root.updateMatrixWorld(true);
+  const le=new THREE.Vector3(),ld=new THREE.Vector3(),base=new THREE.Vector3();
+  vovo.luvaE.getWorldPosition(le);vovo.luvaD.getWorldPosition(ld);
+  const maos=le.clone().add(ld).multiplyScalar(0.5);
+  vovo.root.localToWorld(base.set(0,0.25,0));
+  const bp=new THREE.Vector3(alvo.x,alvo.y,VOVO_Z);
+  const dentro=Math.abs(alvo.x)<HALF-0.06&&alvo.y<GOAL_H-0.06;
+  const naTrave=(Math.abs(Math.abs(alvo.x)-HALF)<0.16&&alvo.y<GOAL_H+0.1)||(Math.abs(alvo.y-GOAL_H)<0.14&&Math.abs(alvo.x)<HALF+0.1);
+  const pegou=Math.min(distSegmento(bp,base,maos),le.distanceTo(bp)-0.05,ld.distanceTo(bp)-0.05)<cfg.raio;
+  if(naTrave){desfecho="trave";vel.set(vel.x*-0.25+(alvo.x>0?-1:1)*0.8,1.6,6);trave();}
+  else if(!dentro){desfecho="fora";}
+  else if(pegou){desfecho="defesa";vel.set((alvo.x-maos.x)*2+(Math.random()-0.5)*3,2.4,5.5+Math.random()*2);batida();torcida(0.22);}
+  else{desfecho="gol";torcida(0.5);}
+  const res=desfecho==="gol"?"gol":"perdeu";
+  if(desfecho==="gol")gols++;
+  resultados[tentativa]=res;tentativa++;montaChutes();
+  const f=$("faixa");
+  const textos={gol:["GOOOL!",cfg.nome+" balançou a rede"],defesa:["DEFENDEU!","Vovô Jonas voou na bola"],fora:["PRA FORA!","Passou longe do gol"],trave:["NA TRAVE!","Uuuh! Quase"]};
+  const tx=textos[desfecho];
+  f.className="faixa "+(desfecho==="gol"?"gol":desfecho==="defesa"?"defesa":"fora");
+  f.innerHTML=tx[0]+"<small>"+tx[1]+"</small>";
+  requestAnimationFrame(()=>f.classList.add("on"));
+  comemora={quem:desfecho==="gol"?"batedor":(desfecho==="defesa"?"vovo":null),inicio:relogio};
+  estado="resultado";t0=relogio;
+}
+
+function fimDeJogo(){
+  estado="fim";$("dica").hidden=true;$("faixa").className="faixa";
+  const venceu=gols>=3;
+  $("fimTitulo").textContent=venceu?cfg.nome+" venceu!":"Vovô Jonas venceu!";
+  $("fimSub").textContent=venceu
+    ?cfg.nome+" fez "+gols+" de "+TOTAL+" gols. Festa rubro-negra! O vovô tricolor vai ouvir piada no almoço de domingo."
+    :"Vovô Jonas segurou "+(TOTAL-gols)+" de "+TOTAL+" cobranças. Ponto para o tricolor, mas "+cfg.nome+" já quer revanche.";
+  $("telaFim").hidden=false;
+}
+
+/* ---------- Loop ---------- */
+const relogioThree=new THREE.Clock();
+function quadro(){
+  const dt=Math.min(relogioThree.getDelta(),0.05);relogio+=dt;
+  const t=relogio-t0;
+
+  if(estado==="mirando"||estado==="escolha"){
+    const s=Math.sin(relogio*2.2);
+    vovo.root.position.x=s*0.35;vovo.root.position.y=Math.abs(Math.cos(relogio*2.2))*0.04;
+    vovo.bracoE.rotation.z=-0.9-Math.sin(relogio*4.4)*0.12;vovo.bracoD.rotation.z=0.9+Math.sin(relogio*4.4)*0.12;
+    if(batedor&&estado==="mirando"){batedor.corpo.position.y=Math.abs(Math.sin(relogio*3))*0.02;}
+  }
+
+  if(estado==="correndo"&&batedor){
+    const dur=0.62;const p=Math.min(t/dur,1);
+    const b=batedor;
+    b.root.position.lerpVectors(BATEDOR_INI,batedorChute,p);
+    b.root.rotation.y=THREE.MathUtils.lerp(0.35,0.1,p);
+    const ciclo=Math.sin(t*16);
+    b.pernaE.rotation.x=ciclo*0.7;b.pernaD.rotation.x=-ciclo*0.7;
+    b.bracoE.rotation.x=-ciclo*0.6;b.bracoD.rotation.x=ciclo*0.6;
+    b.corpo.position.y=Math.abs(ciclo)*0.05;
+    if(p>=1){estado="chutando";t0=relogio;}
+  }
+
+  if(estado==="chutando"&&batedor){
+    const b=batedor;const dur=0.22;const p=Math.min(t/dur,1);
+    b.pernaE.rotation.x=-0.15;
+    b.pernaD.rotation.x=p<0.5?THREE.MathUtils.lerp(-0.2,-1.1,p*2):THREE.MathUtils.lerp(-1.1,1.25,(p-0.5)*2);
+    b.bracoE.rotation.z=-0.15-0.8*p;b.bracoD.rotation.z=0.15+0.4*p;
+    b.corpo.position.y=0.02;
+    if(p>=1){
+      chute();planejaMergulho();
+      vel.copy(alvo).sub(inicioBola).divideScalar(cfg.tempoVoo);
+      estado="voando";t0=relogio;mira.visible=false;
+    }
+  }
+
+  if(estado==="voando"){
+    const p=Math.min(t/cfg.tempoVoo,1);
+    const arco=Math.min(1.1,0.25+alvo.y*0.15)*(cfg===JOGADORES.davi?1.3:1);
+    bola.position.lerpVectors(inicioBola,alvo,p);
+    bola.position.y+=arco*4*p*(1-p);
+    bola.position.y=Math.max(BALL_R,bola.position.y);
+    bola.rotation.x-=dt*18;bola.rotation.y+=dt*5;
+    if(batedor){batedor.pernaD.rotation.x=THREE.MathUtils.lerp(batedor.pernaD.rotation.x,0.3,dt*6);}
+    if(mergulho&&relogio>=mergulho.inicio)aplicaMergulho(Math.min((relogio-mergulho.inicio)/mergulho.dur,1));
+    if(p>=1){resolve();}
+  }
+
+  if(estado==="resultado"){
+    if(mergulho&&relogio>=mergulho.inicio)aplicaMergulho(Math.min((relogio-mergulho.inicio)/mergulho.dur,1));
+    if(desfecho){
+      vel.y-=9.8*dt;
+      bola.position.addScaledVector(vel,dt);
+      bola.rotation.x-=dt*vel.length()*3;
+      if(desfecho==="gol"&&bola.position.z<-1.75){bola.position.z=-1.75;vel.z=Math.abs(vel.z)*0.1;vel.x*=0.3;
+        redeFundo.position.z=-1.9-0.18;}
+      if(desfecho==="gol"&&bola.position.y>GOAL_H-BALL_R&&bola.position.z<0){bola.position.y=GOAL_H-BALL_R;vel.y=-Math.abs(vel.y)*0.3;}
+      if(bola.position.y<BALL_R){bola.position.y=BALL_R;if(Math.abs(vel.y)>0.6){vel.y=-vel.y*0.45;}else vel.y=0;vel.x*=0.92;vel.z*=0.92;}
+    }
+    redeFundo.position.z+=(-1.9-redeFundo.position.z)*Math.min(1,dt*4);
+    if(comemora&&comemora.quem==="batedor"&&batedor){
+      const c=relogio-comemora.inicio;const b=batedor;
+      b.root.rotation.y=THREE.MathUtils.lerp(b.root.rotation.y,Math.PI,Math.min(1,dt*5));
+      b.corpo.position.y=Math.abs(Math.sin(c*9))*0.28*cfg.escala+0.0;
+      b.bracoE.rotation.z=-2.7+Math.sin(c*18)*0.25;b.bracoD.rotation.z=2.7-Math.sin(c*18)*0.25;
+      b.bracoE.rotation.x=0;b.bracoD.rotation.x=0;b.pernaD.rotation.x=Math.sin(c*9)*0.3;b.pernaE.rotation.x=-Math.sin(c*9)*0.3;
+    }
+    if(comemora&&comemora.quem==="vovo"&&t>0.9){
+      const c=Math.min((t-0.9)/0.5,1);
+      vovo.root.rotation.z=THREE.MathUtils.lerp(vovo.root.rotation.z,0,c);
+      vovo.root.position.y=THREE.MathUtils.lerp(vovo.root.position.y,0,c);
+      vovo.bracoE.rotation.z=-2.6+Math.sin(t*14)*0.2;vovo.bracoD.rotation.z=2.6-Math.sin(t*14)*0.2;
+    }
+    if(t>2.4){
+      if(tentativa>=TOTAL)fimDeJogo();else novaCobranca();
+    }
+  }
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(quadro);
+}
+
+function ajusta(){
+  const w=palco.clientWidth||window.innerWidth,h=palco.clientHeight||window.innerHeight;
+  renderer.setSize(w,h,false);
+  const asp=w/h;camera.aspect=asp;
+  const hfov=2*Math.atan(6.2/CAM_POS.z);
+  const vfov=2*Math.atan(Math.tan(hfov/2)/asp)*180/Math.PI;
+  camera.fov=Math.max(42,Math.min(78,vfov));
+  const retrato=asp<0.8;
+  camera.position.set(CAM_POS.x,retrato?2.4:CAM_POS.y,CAM_POS.z);
+  camera.lookAt(CAM_ALVO.x,retrato?1.5:CAM_ALVO.y,CAM_ALVO.z);
+  camera.updateProjectionMatrix();
+}
+window.addEventListener("resize",ajusta);
+ajusta();
+poseVovo();
+bola.position.copy(inicioBola);
+requestAnimationFrame(quadro);
+})();
+</script>
+</body>
+</html>
