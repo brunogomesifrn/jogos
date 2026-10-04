@@ -12,6 +12,7 @@ A collection of small, independent browser games, each a **single self-contained
 | `missoes_hercules/index.html` | Rota das Iguanas — C-130 cargo/transport missions between airports | Three.js r128 |
 | `resgate_hercules_iguanas/index.html` | Hércules de Resgate — 2D side-scroller rescuing iguanas | Canvas 2D |
 | `penalti_vovo/penalti-vovo-jonas.html` | Pênalti do Vovô Jonas — penalty shootout vs. grandpa goalkeeper | Three.js r128 |
+| `caminhao_bombeiro/index.html` | Plantão 193 — drive a fire truck through the city, aim the hose at fires, refill at hydrants | Three.js r128 |
 
 The root `index.html` is a kid-friendly launcher page ("Meus Jogos"): one big card per game, each with an inline-SVG icon, linking to the paths above by relative URL. **When adding, renaming or removing a game folder, update its card in `index.html`** (each card is an `<a class="jogo …">` with a per-game `--cor` color class).
 

@@ -10,7 +10,7 @@
 <style>
   :root{
     --sky:#bfe8ff; --sky2:#e6f6ff; --ink:#1d2a44; --white:#fff;
-    --red:#ff5a3c; --orange:#ffa62b; --green:#4cc35e; --blue:#3d8bff;
+    --red:#ff5a3c; --orange:#ffa62b; --green:#4cc35e; --blue:#3d8bff; --crimson:#c8202f;
   }
   *{box-sizing:border-box}
   html,body{margin:0}
@@ -80,6 +80,7 @@
   .missoes{--cor:var(--orange)}
   .resgate{--cor:var(--green)}
   .penalti{--cor:var(--blue)}
+  .caminhao{--cor:var(--crimson)}
 
   @media (prefers-reduced-motion:reduce){
     .nuvem,.jogo:hover .icone svg{animation:none}
@@ -167,6 +168,28 @@
     </span>
     <span class="nome">Pênalti do Vovô Jonas</span>
     <span class="desc">Bata o pênalti e tente fazer gol no vovô!</span>
+    <span class="jogar">Jogar</span>
+  </a>
+
+  <a class="jogo caminhao" href="caminhao_bombeiro/index.html">
+    <span class="icone" aria-hidden="true">
+      <svg viewBox="0 0 100 100">
+        <path d="M74 50c-6-3-8-10-4-16 1 4 4 5 5 4-2-6 2-12 7-14 0 5 2 8 5 9 0-3 2-6 4-7 0 6 4 10 3 16-1 6-8 10-14 9-2 0-4 0-6-1z" fill="#ff5a3c"/>
+        <path d="M78 50c-3-2-3-7 0-9 0 2 2 3 3 3-1-4 1-6 4-7 0 3 2 5 3 8 1 3-1 6-4 6-2 0-4 0-6-1z" fill="#ffd23f"/>
+        <g fill="#4fb6ff"><circle cx="58" cy="36" r="2.6"/><circle cx="64" cy="40" r="2.6"/><circle cx="66" cy="32" r="2.2"/><circle cx="71" cy="44" r="2.2"/></g>
+        <path d="M44 46 56 38" stroke="#8d9895" stroke-width="4" stroke-linecap="round"/>
+        <rect x="6" y="52" width="58" height="24" rx="4" fill="#c8202f"/>
+        <path d="M64 56h12c4 0 7 3 9 7l3 6v7H64z" fill="#c8202f"/>
+        <path d="M68 59h8c2 0 3 1 4 3l2 5H68z" fill="#bfe8ff"/>
+        <path d="M10 46h44M10 50h44M14 46v4M24 46v4M34 46v4M44 46v4" stroke="#8d9895" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="6" y="66" width="82" height="4" fill="#fff"/>
+        <rect x="70" y="50" width="8" height="5" rx="2" fill="#3d8bff"/>
+        <g><circle cx="22" cy="78" r="9" fill="#1d2a44"/><circle cx="22" cy="78" r="3.5" fill="#d0d6d4"/><circle cx="72" cy="78" r="9" fill="#1d2a44"/><circle cx="72" cy="78" r="3.5" fill="#d0d6d4"/></g>
+        <path d="M0 87h100v13H0z" fill="#8d9895"/>
+      </svg>
+    </span>
+    <span class="nome">Plantão 193</span>
+    <span class="desc">Dirija o caminhão de bombeiros e apague o fogo na cidade!</span>
     <span class="jogar">Jogar</span>
   </a>
 </main>

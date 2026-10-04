@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plantão 193</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: full-screen 3D view, cab-dashboard HUD panels pinned to corners, reflective chevron stripe as signature */
+:root{
+  --panel: rgba(16,21,26,.82);
+  --panel-edge: rgba(255,255,255,.08);
+  --red: #d7261e;
+  --amber: #ffb627;
+  --water: #4fb3ff;
+  --chalk: #f3efe6;
+  --steel: #9aa6b0;
+  --display: "Bungee", "Impact", "Arial Black", sans-serif;
+  --body: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html,body{height:100%;margin:0;}
+[hidden]{display:none!important;}
+*,*::before,*::after{box-sizing:border-box;}
+body{background:#0e1317;color:var(--chalk);font-family:var(--body);overflow:hidden;}
+#app{position:fixed;inset:0;user-select:none;-webkit-user-select:none;}
+#c{width:100%;height:100%;display:block;touch-action:none;}
+
+.panel{background:var(--panel);border:1px solid var(--panel-edge);border-radius:6px;position:relative;overflow:hidden;backdrop-filter:blur(4px);}
+.panel::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;
+  background:repeating-linear-gradient(135deg,var(--red) 0 8px,var(--chalk) 8px 16px);}
+
+.hud{position:absolute;pointer-events:none;}
+#stats{top:calc(12px + env(safe-area-inset-top,0px));left:12px;padding:12px 14px 10px;display:grid;grid-template-columns:auto auto;gap:2px 14px;font-variant-numeric:tabular-nums;}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);font-weight:600;align-self:center;}
+.val{font-size:20px;font-weight:700;text-align:right;}
+.val.bad{color:#ff6a5c;}
+
+#tankBox{bottom:calc(14px + env(safe-area-inset-bottom,0px));left:12px;padding:12px 14px 12px;width:min(260px,52vw);}
+#tankHead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-variant-numeric:tabular-nums;}
+#tankL{font-size:20px;font-weight:700;}
+#tankBar{margin-top:8px;height:14px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;position:relative;}
+#tankFill{height:100%;width:100%;background:linear-gradient(90deg,#2b8ee0,var(--water));transition:background .3s;}
+#tankBar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 1px),rgba(0,0,0,.45) calc(25% - 1px) 25%);}
+#speed{margin-top:8px;font-size:12px;color:var(--steel);letter-spacing:.08em;font-variant-numeric:tabular-nums;}
+
+#mapBox{top:calc(12px + env(safe-area-inset-top,0px));right:12px;width:168px;height:168px;border-radius:50%;padding:0;border:3px solid rgba(255,255,255,.14);}
+#mapBox::before{display:none;}
+#map{width:100%;height:100%;display:block;}
+#mapN{position:absolute;bottom:6px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.14em;color:var(--steel);}
+
+#seek{top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;}
+#arrow{width:42px;height:42px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));}
+#seekTxt{font-size:13px;font-weight:700;letter-spacing:.06em;background:var(--panel);padding:3px 10px;border-radius:12px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+#risk{width:90px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden;}
+#riskFill{height:100%;width:0;background:var(--amber);}
+
+#prompt{bottom:calc(24px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);font-size:clamp(14px,2.2vw,19px);font-weight:700;letter-spacing:.03em;text-align:center;padding:8px 16px;border-radius:20px;background:var(--panel);max-width:min(560px,calc(100vw - 32px));}
+#prompt:empty{display:none;}
+#toast{top:30%;left:50%;transform:translate(-50%,-50%);font-family:var(--display);font-size:clamp(20px,4vw,38px);color:var(--amber);text-shadow:0 3px 0 #000,0 0 18px rgba(0,0,0,.6);text-align:center;opacity:0;transition:opacity .25s;white-space:nowrap;}
+#toast.on{opacity:1;}
+#toast.good{color:#7fe08a;}
+
+/* overlays */
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(ellipse at center,rgba(10,14,18,.55),rgba(10,14,18,.85));z-index:5;}
+.card{width:min(520px,100%);padding:26px 24px 22px;max-height:calc(100% - 8px);overflow:auto;}
+.eyebrow{font-size:12px;letter-spacing:.2em;color:var(--steel);font-weight:600;text-transform:uppercase;margin-top:4px;}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(38px,9vw,60px);line-height:1;margin:8px 0 12px;color:var(--chalk);text-wrap:balance;}
+h1 b{color:var(--red);font-weight:400;}
+.card p{font-size:16px;line-height:1.45;color:#d9d4ca;margin:0 0 14px;max-width:60ch;}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;margin:6px 0 16px;font-size:15px;align-items:center;}
+.keys dt{display:flex;gap:4px;flex-wrap:wrap;}
+.keys dd{margin:0;color:#d9d4ca;}
+kbd{font-family:var(--body);font-weight:700;font-size:13px;min-width:26px;text-align:center;padding:3px 6px;border-radius:4px;background:#2a333b;border:1px solid #3d4852;border-bottom-width:3px;color:var(--chalk);}
+.note{font-size:14px!important;color:var(--steel)!important;}
+.btn{font-family:var(--display);font-size:18px;color:#fff;background:var(--red);border:0;border-radius:6px;padding:14px 22px;cursor:pointer;box-shadow:0 4px 0 #8c1410;transition:transform .08s;}
+.btn:hover{filter:brightness(1.08);}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #8c1410;}
+.btn:focus-visible{outline:3px solid var(--amber);outline-offset:3px;}
+.row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.hint{font-size:13px;color:var(--steel);}
+.final{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 18px;font-variant-numeric:tabular-nums;}
+.final div{background:rgba(255,255,255,.05);border-radius:4px;padding:10px;}
+.final b{display:block;font-size:26px;}
+.final span{font-size:11px;letter-spacing:.12em;color:var(--steel);text-transform:uppercase;}
+
+/* touch controls */
+#touch{position:absolute;inset:auto 0 0 0;bottom:calc(84px + env(safe-area-inset-bottom,0px));display:flex;justify-content:space-between;padding:0 12px;pointer-events:none;}
+.pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px;pointer-events:auto;}
+.tb{background:rgba(16,21,26,.7);border:1px solid rgba(255,255,255,.18);color:var(--chalk);border-radius:10px;font-size:20px;touch-action:none;font-family:var(--body);font-weight:700;}
+.tb.on{background:rgba(215,38,30,.75);}
+.tb.up{grid-column:2;grid-row:1;}
+.tb.lf{grid-column:1;grid-row:2;}
+.tb.dn{grid-column:2;grid-row:2;}
+.tb.rt{grid-column:3;grid-row:2;}
+.right{display:flex;gap:8px;align-items:flex-end;pointer-events:auto;}
+#jet{width:84px;height:84px;border-radius:50%;background:rgba(40,120,200,.8);font-family:var(--display);font-size:15px;}
+#jet.on{background:var(--water);color:#062033;}
+.padlbl{grid-column:1/4;font-size:10px;letter-spacing:.14em;text-align:center;color:var(--steel);}
+
+@media (max-width:640px){
+  #mapBox{width:116px;height:116px;}
+  #stats{padding:10px 10px 8px;gap:0 10px;}
+  .val{font-size:16px;}
+  .lbl{font-size:10px;}
+  #seek{top:calc(140px + env(safe-area-inset-top,0px));left:auto;right:12px;transform:none;}
+  #prompt{bottom:calc(12px + env(safe-area-inset-bottom,0px));}
+  #tankBox{bottom:auto;top:calc(120px + env(safe-area-inset-top,0px));width:150px;padding:10px;}
+  #tankL{font-size:16px;}
+  .pad{grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,46px);}
+  #jet{width:74px;height:74px;}
+  #touch{bottom:calc(60px + env(safe-area-inset-bottom,0px));}
+}
+@media (prefers-reduced-motion:reduce){ #toast{transition:none;} }
+</style>
+
+</head>
+<body>
+<div id="app">
+  <canvas id="c"></canvas>
+
+  <div class="hud panel" id="stats">
+    <span class="lbl">Pontos</span><span class="val" id="sPts">0</span>
+    <span class="lbl">Apagados</span><span class="val" id="sOk">0</span>
+    <span class="lbl">Focos ativos</span><span class="val" id="sAct">0</span>
+    <span class="lbl">Perdas</span><span class="val" id="sLost">0/5</span>
+  </div>
+
+  <div class="hud" id="seek">
+    <svg id="arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3 L34 33 L20 25 L6 33 Z" fill="#ffb627" stroke="#000" stroke-width="2" stroke-linejoin="round"/></svg>
+    <div id="seekTxt">—</div>
+    <div id="risk"><div id="riskFill"></div></div>
+  </div>
+
+  <div class="hud panel" id="mapBox"><canvas id="map"></canvas><div id="mapN">MAPA</div></div>
+
+  <div class="hud panel" id="tankBox">
+    <div id="tankHead"><span class="lbl">Tanque</span><span id="tankL">3.000 L</span></div>
+    <div id="tankBar"><div id="tankFill"></div></div>
+    <div id="speed">0 km/h</div>
+  </div>
+
+  <div class="hud" id="prompt"></div>
+  <div class="hud" id="toast"></div>
+
+  <div id="touch" hidden>
+    <div class="pad">
+      <span class="padlbl" style="display:none"></span>
+      <button class="tb up" data-k="KeyW" aria-label="Acelerar">▲</button>
+      <button class="tb lf" data-k="KeyA" aria-label="Virar à esquerda">◀</button>
+      <button class="tb dn" data-k="KeyS" aria-label="Frear e ré">▼</button>
+      <button class="tb rt" data-k="KeyD" aria-label="Virar à direita">▶</button>
+    </div>
+    <div class="right">
+      <div class="pad">
+        <button class="tb up" data-k="ArrowUp" aria-label="Mirar para cima">⤒</button>
+        <button class="tb lf" data-k="ArrowLeft" aria-label="Mirar à esquerda">⟲</button>
+        <button class="tb dn" data-k="ArrowDown" aria-label="Mirar para baixo">⤓</button>
+        <button class="tb rt" data-k="ArrowRight" aria-label="Mirar à direita">⟳</button>
+      </div>
+      <button class="tb" id="jet" data-k="Space">JATO</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="menu">
+    <div class="card panel">
+      <div class="eyebrow">Corpo de Bombeiros · Viatura ABT-01</div>
+      <h1>Plantão <b>193</b></h1>
+      <p>A cidade não para de pegar fogo. Encontre os focos, pare o caminhão na frente, mire a mangueira e jogue água até apagar. Quando o tanque secar, abasteça num hidrante.</p>
+      <dl class="keys" id="keysDesk">
+        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Dirigir o caminhão</dd>
+        <dt><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Mirar a mangueira</dd>
+        <dt><kbd>Espaço</kbd></dt><dd>Jogar água (segure, com o caminhão parado)</dd>
+        <dt><kbd>💧</kbd></dt><dd>Pare perto de um hidrante (luz azul) para abastecer</dd>
+      </dl>
+      <p class="note">A seta amarela no alto aponta o foco mais próximo. Se um foco queimar por tempo demais, o prédio ou a árvore é perdido. Cinco perdas encerram o plantão.</p>
+      <div class="row"><button class="btn" id="startBtn">Começar plantão</button><span class="hint" id="enterHint">ou aperte Enter</span></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="over" hidden>
+    <div class="card panel">
+      <div class="eyebrow">Fim de plantão</div>
+      <h1>A cidade <b>agradece</b></h1>
+      <div class="final">
+        <div><b id="fPts">0</b><span>Pontos</span></div>
+        <div><b id="fOk">0</b><span>Apagados</span></div>
+        <div><b id="fTime">0:00</b><span>Tempo</span></div>
+      </div>
+      <div class="row"><button class="btn" id="againBtn">Novo plantão</button><span class="hint">ou aperte Enter</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const rand = (a,b) => a + Math.random()*(b-a);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const fmtL = n => Math.round(n).toLocaleString('pt-BR') + ' L';
+
+/* ---------- renderer / scene ---------- */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const SKY = 0xa8d0ec;
+scene.background = new THREE.Color(SKY);
+scene.fog = new THREE.Fog(SKY, 80, 230);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 600);
+
+scene.add(new THREE.HemisphereLight(0xe6f2ff, 0x5a6b4a, 0.75));
+const sun = new THREE.DirectionalLight(0xfff3dd, 0.95);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-70, right:70, top:70, bottom:-70, near:1, far:220});
+sun.shadow.bias = -0.0008;
+scene.add(sun, sun.target);
+
+/* ---------- city layout ---------- */
+const BLOCK = 40, ROAD = 12, N = 6, CELL = BLOCK + ROAD, SIZE = N*CELL + ROAD, HALF = SIZE/2;
+const roadC = i => -HALF + ROAD/2 + i*CELL;
+const TOP = 0.32; // block top height
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(SIZE + 400, SIZE + 400), new THREE.MeshLambertMaterial({color:0x6f9a55}));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE), new THREE.MeshLambertMaterial({color:0x3a3f45}));
+asphalt.rotation.x = -Math.PI/2; asphalt.position.y = 0.02; asphalt.receiveShadow = true; scene.add(asphalt);
+
+// lane dashes
+{
+  const pos = [];
+  const nearCross = v => { for (let j=0;j<=N;j++) if (Math.abs(v - roadC(j)) < ROAD/2 + 1) return true; return false; };
+  for (let i=0;i<=N;i++) for (let t=-HALF+2; t<HALF-2; t+=5) {
+    if (nearCross(t)) continue;
+    pos.push([roadC(i), t, 0], [t, roadC(i), 1]);
+  }
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.25, 0.02, 2.4), new THREE.MeshBasicMaterial({color:0xf2d04a}), pos.length);
+  const d = new THREE.Object3D();
+  pos.forEach((p,k) => { d.position.set(p[0], 0.04, p[1]); d.rotation.y = p[2] ? Math.PI/2 : 0; d.updateMatrix(); m.setMatrixAt(k, d.matrix); });
+  scene.add(m);
+}
+
+// window textures
+function winTex(lit){
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0,0,64,64);
+  for (let y=0;y<2;y++) for (let x=0;x<2;x++){
+    g.fillStyle = Math.random() < lit ? '#ffe7a3' : '#3b5874';
+    g.fillRect(7+x*32, 6+y*32, 18, 22);
+    g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(7+x*32, 6+y*32, 18, 3);
+  }
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const winTexs = [winTex(.1), winTex(.25), winTex(.4)];
+const BCOLORS = [0xe8d9c0, 0xd9a68a, 0xb9c7cf, 0xe6c46a, 0xc9b3a0, 0x9fb59a, 0xd8d0c8, 0xb88f7a, 0xa9b8c9];
+const BURNT = new THREE.Color(0x2b2523);
+
+const slabMat = new THREE.MeshLambertMaterial({color:0xb9b4a9});
+const grassMat = new THREE.MeshLambertMaterial({color:0x5f9a4c});
+const plazaMat = new THREE.MeshLambertMaterial({color:0x9a958c});
+const slabGeo = new THREE.BoxGeometry(BLOCK, 0.3, BLOCK);
+const innerGeo = new THREE.BoxGeometry(BLOCK-4, 0.04, BLOCK-4);
+
+const trunkGeo = new THREE.CylinderGeometry(0.3, 0.45, 2.6, 7);
+const canopyGeo = new THREE.IcosahedronGeometry(2.1, 0);
+const trunkMat = new THREE.MeshLambertMaterial({color:0x7a5333});
+const burntTrunkMat = new THREE.MeshLambertMaterial({color:0x1d1a18});
+const canopyMats = [0x3f8a3a, 0x4f9e3f, 0x2f7a3c, 0x5da24a].map(c => new THREE.MeshLambertMaterial({color:c}));
+
+const blocks = [], targets = [], buildingsForMap = [];
+
+function addTree(x, z){
+  const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+  trunk.position.set(x, TOP + 1.3, z); trunk.castShadow = true;
+  const canopy = new THREE.Mesh(canopyGeo, canopyMats[(Math.random()*canopyMats.length)|0]);
+  const s = rand(0.85, 1.25);
+  canopy.scale.set(s, s*rand(1,1.3), s);
+  canopy.position.set(x, TOP + 3.6 + s*0.6, z); canopy.rotation.y = rand(0,6);
+  canopy.castShadow = true;
+  scene.add(trunk, canopy);
+  targets.push({type:'tree', trunk, canopy, x, z, firePos:new THREE.Vector3(x, canopy.position.y - 0.6, z), burned:false, fire:null, smokeT:0});
+}
+
+function addBuilding(x, z, ox, oz){
+  const w = rand(11, 16), d = rand(11, 16), h = rand(8, 34);
+  const color = new THREE.Color(BCOLORS[(Math.random()*BCOLORS.length)|0]);
+  const base = winTexs[(Math.random()*3)|0];
+  const tx = base.clone(); tx.needsUpdate = true; tx.repeat.set(d/4, h/4);
+  const tz = base.clone(); tz.needsUpdate = true; tz.repeat.set(w/4, h/4);
+  const mX = new THREE.MeshLambertMaterial({color:color.clone(), map:tx});
+  const mZ = new THREE.MeshLambertMaterial({color:color.clone(), map:tz});
+  const roofCol = color.clone().multiplyScalar(0.72);
+  const mR = new THREE.MeshLambertMaterial({color:roofCol.clone()});
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [mX, mX, mR, mR, mZ, mZ]);
+  mesh.position.set(x, TOP + h/2, z); mesh.castShadow = mesh.receiveShadow = true;
+  scene.add(mesh);
+  // fire sits on the wall facing a road
+  const useX = Math.random() < 0.5;
+  const nx = useX ? Math.sign(ox) : 0, nz = useX ? 0 : Math.sign(oz);
+  const fy = TOP + Math.min(h - 1.5, rand(2.5, 7.5));
+  const firePos = new THREE.Vector3(x + nx*(w/2 + 0.5), fy, z + nz*(d/2 + 0.5));
+  targets.push({type:'building', mesh, mats:[mX, mZ, mR], color, roofCol, x, z, firePos, burned:false, fire:null, smokeT:0});
+  buildingsForMap.push({x, z, w, d});
+}
+
+for (let i=0;i<N;i++) for (let j=0;j<N;j++){
+  const bx = roadC(i) + CELL/2, bz = roadC(j) + CELL/2;
+  const park = Math.random() < 0.22;
+  const slab = new THREE.Mesh(slabGeo, slabMat); slab.position.set(bx, 0.15, bz); slab.receiveShadow = true; scene.add(slab);
+  const inner = new THREE.Mesh(innerGeo, park ? grassMat : plazaMat); inner.position.set(bx, 0.31, bz); inner.receiveShadow = true; scene.add(inner);
+  blocks.push({x:bx, z:bz, park});
+  if (park){
+    for (let t=-14; t<=14; t+=7){
+      for (const [px,pz] of [[t,-14],[t,14],[-14,t],[14,t]]) if (Math.random() < 0.8) addTree(bx + px + rand(-1,1), bz + pz + rand(-1,1));
+    }
+    for (let k=0;k<3;k++) addTree(bx + rand(-6,6), bz + rand(-6,6));
+  } else {
+    for (const ox of [-10, 10]) for (const oz of [-10, 10]){
+      if (Math.random() < 0.15){
+        addTree(bx + ox + rand(-3,3), bz + oz + rand(-3,3));
+        addTree(bx + ox + rand(-3,3), bz + oz + rand(-3,3));
+      } else addBuilding(bx + ox, bz + oz, ox, oz);
+    }
+  }
+}
+
+/* ---------- hydrants ---------- */
+const hydrants = [];
+{
+  const hBody = new THREE.CylinderGeometry(0.45, 0.55, 1.4, 10);
+  const hCap = new THREE.SphereGeometry(0.5, 10, 8, 0, Math.PI*2, 0, Math.PI/2);
+  const hNoz = new THREE.CylinderGeometry(0.18, 0.18, 1.3, 8);
+  const hMat = new THREE.MeshLambertMaterial({color:0xe02a1f});
+  const capMat = new THREE.MeshLambertMaterial({color:0xf2c230});
+  const beamMat = new THREE.MeshBasicMaterial({color:0x4fb3ff, transparent:true, opacity:0.28, depthWrite:false});
+  const beamGeo = new THREE.CylinderGeometry(0.5, 0.9, 14, 12, 1, true);
+  const ringGeo = new THREE.TorusGeometry(1.6, 0.12, 6, 24);
+  const ringMat = new THREE.MeshBasicMaterial({color:0x4fb3ff});
+  const used = new Set();
+  let tries = 0;
+  while (hydrants.length < 12 && tries++ < 500){
+    const i = (Math.random()*(N+1))|0, j = (Math.random()*(N+1))|0;
+    const key = i + ',' + j; if (used.has(key)) continue; used.add(key);
+    let sx = Math.random() < .5 ? -1 : 1, sz = Math.random() < .5 ? -1 : 1;
+    if (i === 0) sx = 1; if (i === N) sx = -1; if (j === 0) sz = 1; if (j === N) sz = -1;
+    const x = roadC(i) + sx*(ROAD/2 + 1.2), z = roadC(j) + sz*(ROAD/2 + 1.2);
+    const g = new THREE.Group(); g.position.set(x, TOP, z);
+    const b = new THREE.Mesh(hBody, hMat); b.position.y = 0.7; b.castShadow = true;
+    const c = new THREE.Mesh(hCap, capMat); c.position.y = 1.4;
+    const n = new THREE.Mesh(hNoz, hMat); n.rotation.z = Math.PI/2; n.position.y = 0.9;
+    const beam = new THREE.Mesh(beamGeo, beamMat); beam.position.y = 7;
+    const ring = new THREE.Mesh(ringGeo, ringMat); ring.rotation.x = Math.PI/2; ring.position.y = 0.06;
+    g.add(b, c, n, beam, ring); scene.add(g);
+    hydrants.push({x, z, ring, outX: x - sx*3.5, outZ: z - sz*3.5});
+  }
+}
+
+/* ---------- truck ---------- */
+const truck = new THREE.Group(); scene.add(truck);
+const RED = new THREE.MeshLambertMaterial({color:0xc8201a});
+const darkMat = new THREE.MeshLambertMaterial({color:0x22262a});
+const chromeMat = new THREE.MeshLambertMaterial({color:0xcfd5da});
+const whiteMat = new THREE.MeshLambertMaterial({color:0xf3efe6});
+const glassMat = new THREE.MeshLambertMaterial({color:0x223548});
+function box(w,h,d,mat,x,y,z){ const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat); m.position.set(x,y,z); m.castShadow = true; truck.add(m); return m; }
+box(2.3, 0.5, 6.8, darkMat, 0, 0.75, 0);
+box(2.5, 2.0, 4.3, RED, 0, 2.0, -1.0);
+box(2.5, 1.8, 2.1, RED, 0, 1.9, 2.3);
+box(2.3, 0.8, 0.1, glassMat, 0, 2.3, 3.36);
+box(2.52, 0.7, 0.05, glassMat, 0, 2.3, 2.6).scale.set(1, 1, 1);
+box(2.54, 0.22, 4.32, whiteMat, 0, 1.45, -1.0);
+box(2.54, 0.22, 2.12, whiteMat, 0, 1.45, 2.3);
+box(2.6, 0.35, 0.3, chromeMat, 0, 0.9, 3.45);
+box(0.25, 0.25, 4.0, chromeMat, 0.75, 3.15, -1.0);
+box(0.25, 0.25, 4.0, chromeMat, -0.75, 3.15, -1.0);
+for (let k=-1.5;k<=0.5;k+=0.5) box(1.6, 0.12, 0.12, chromeMat, 0, 3.15, k - 1.0);
+const lightR = box(0.9, 0.25, 0.4, new THREE.MeshBasicMaterial({color:0xff2a2a}), -0.55, 2.95, 2.5);
+const lightB = box(0.9, 0.25, 0.4, new THREE.MeshBasicMaterial({color:0x3a7bff}), 0.55, 2.95, 2.5);
+const wheels = [];
+{
+  const wg = new THREE.CylinderGeometry(0.62, 0.62, 0.5, 14); wg.rotateZ(Math.PI/2);
+  for (const z of [2.3, -1.2, -2.5]) for (const x of [-1.15, 1.15]){
+    const w = new THREE.Mesh(wg, darkMat); w.position.set(x, 0.62, z); w.castShadow = true; truck.add(w); wheels.push(w);
+  }
+}
+// turret + nozzle
+const turret = new THREE.Group(); turret.position.set(0, 3.1, 0.6); truck.add(turret);
+{ const b = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.4, 12), chromeMat); b.castShadow = true; turret.add(b); }
+const pitchG = new THREE.Group(); pitchG.position.y = 0.3; turret.add(pitchG);
+{ const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.22, 2.0, 10), RED); barrel.rotation.x = Math.PI/2; barrel.position.z = 1.0; barrel.castShadow = true; pitchG.add(barrel);
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.14, 0.35, 10), chromeMat); tip.rotation.x = Math.PI/2; tip.position.z = 2.1; pitchG.add(tip); }
+const nozzle = new THREE.Object3D(); nozzle.position.z = 2.3; pitchG.add(nozzle);
+
+/* ---------- particles ---------- */
+const dummy = new THREE.Object3D();
+const WATER_MAX = 520;
+const waterMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.2, 6, 4), new THREE.MeshBasicMaterial({color:0xa9dcff, transparent:true, opacity:0.85}), WATER_MAX);
+waterMesh.frustumCulled = false; scene.add(waterMesh);
+const water = [];
+for (let i=0;i<WATER_MAX;i++){ water.push({a:false, p:new THREE.Vector3(), v:new THREE.Vector3(), t:0}); dummy.scale.setScalar(0); dummy.updateMatrix(); waterMesh.setMatrixAt(i, dummy.matrix); }
+let waterIdx = 0;
+
+const PUFF_MAX = 420;
+const puffMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.5, depthWrite:false}), PUFF_MAX);
+puffMesh.frustumCulled = false; scene.add(puffMesh);
+const puffs = [];
+const tmpC = new THREE.Color();
+for (let i=0;i<PUFF_MAX;i++){ puffs.push({a:false, p:new THREE.Vector3(), v:new THREE.Vector3(), t:0, life:1, s:1}); dummy.scale.setScalar(0); dummy.updateMatrix(); puffMesh.setMatrixAt(i, dummy.matrix); puffMesh.setColorAt(i, tmpC.set(0x777777)); }
+let puffIdx = 0;
+function puff(x,y,z, color, size, life, vy){
+  const idx = puffIdx, p = puffs[idx]; puffIdx = (puffIdx + 1) % PUFF_MAX;
+  p.a = true; p.p.set(x,y,z); p.v.set(rand(-.6,.6), vy, rand(-.6,.6)); p.t = 0; p.life = life; p.s = size;
+  puffMesh.setColorAt(idx, tmpC.set(color));
+  puffMesh.instanceColor.needsUpdate = true;
+}
+
+// aim preview
+const ARC_N = 40;
+const arcGeo = new THREE.BufferGeometry();
+arcGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ARC_N*3), 3));
+const arc = new THREE.Points(arcGeo, new THREE.PointsMaterial({color:0xffffff, size:0.35, transparent:true, opacity:0.7, depthWrite:false}));
+arc.frustumCulled = false; scene.add(arc);
+
+// refill hose
+const hoseGeo = new THREE.BufferGeometry();
+hoseGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+const hose = new THREE.Line(hoseGeo, new THREE.LineBasicMaterial({color:0xf2c230}));
+hose.frustumCulled = false; hose.visible = false; scene.add(hose);
+
+/* ---------- fire ---------- */
+const flameGeo = new THREE.ConeGeometry(0.75, 2.6, 7, 1, true); flameGeo.translate(0, 1.3, 0);
+const flameMats = [0xff4a17, 0xff8a1c, 0xffd13d].map(c => new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:0.85, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide}));
+const glowGeo = new THREE.SphereGeometry(1.5, 10, 8);
+const glowMat = new THREE.MeshBasicMaterial({color:0xff5a1a, transparent:true, opacity:0.35, blending:THREE.AdditiveBlending, depthWrite:false});
+const fireLights = [];
+for (let i=0;i<6;i++){ const l = new THREE.PointLight(0xff7a2a, 0, 20, 2); scene.add(l); fireLights.push(l); }
+
+const fires = [];
+const HP_MAX = 150;
+function spawnFire(){
+  const free = targets.filter(t => !t.burned && !t.fire);
+  if (!free.length) return;
+  const wantB = Math.random() < 0.6;
+  let pool = free.filter(t => (t.type === 'building') === wantB);
+  if (!pool.length) pool = free;
+  const target = pool[(Math.random()*pool.length)|0];
+  const g = new THREE.Group(); g.position.copy(target.firePos);
+  const flames = [];
+  for (let i=0;i<8;i++){
+    const m = new THREE.Mesh(flameGeo, flameMats[i % 3]);
+    const a = rand(0, 6.28), r = rand(0, 1.1);
+    m.position.set(Math.cos(a)*r, rand(-0.8, -0.3), Math.sin(a)*r);
+    m.userData = {ph:rand(0,10), sc:rand(0.6, 1.3)};
+    g.add(m); flames.push(m);
+  }
+  g.add(new THREE.Mesh(glowGeo, glowMat));
+  scene.add(g);
+  const f = {target, pos:target.firePos, hp:45, age:0, life: target.type === 'tree' ? 55 : 80, group:g, flames, radius: target.type === 'tree' ? 2.7 : 3.1};
+  target.fire = f; fires.push(f);
+}
+function removeFire(f){ scene.remove(f.group); f.target.fire = null; fires.splice(fires.indexOf(f), 1); }
+function burnTarget(t){
+  t.burned = true; t.smokeT = 25;
+  if (t.type === 'building'){ t.mats[0].color.copy(BURNT); t.mats[1].color.copy(BURNT); t.mats[2].color.set(0x1a1716); }
+  else { t.canopy.visible = false; t.trunk.material = burntTrunkMat; }
+}
+function restoreTarget(t){
+  t.burned = false; t.smokeT = 0; t.fire = null;
+  if (t.type === 'building'){ t.mats[0].color.copy(t.color); t.mats[1].color.copy(t.color); t.mats[2].color.copy(t.roofCol); }
+  else { t.canopy.visible = true; t.trunk.material = trunkMat; }
+}
+
+/* ---------- state ---------- */
+const TANK_MAX = 3000, SPRAY_RATE = 360, REFILL_RATE = 950, MAX_LOSS = 5;
+const T = {x:0, z:0, heading:0, speed:0, aimYaw:0, aimPitch:0.35, tank:TANK_MAX};
+let state = 'menu', points = 0, extinguished = 0, losses = 0, elapsed = 0, spawnT = 0, camYaw = 0, clock = 0;
+
+function resetGame(){
+  while (fires.length) removeFire(fires[0]);
+  targets.forEach(restoreTarget);
+  water.forEach(w => w.a = false);
+  Object.assign(T, {x:0, z:0, heading:0, speed:0, aimYaw:0, aimPitch:0.35, tank:TANK_MAX});
+  points = 0; extinguished = 0; losses = 0; elapsed = 0; spawnT = 3; camYaw = 0;
+  spawnFire(); spawnFire();
+}
+
+/* ---------- input ---------- */
+const keys = {};
+const PREVENT = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
+addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (PREVENT.includes(e.code)) e.preventDefault();
+  if (e.code === 'Enter' && state !== 'play') startGame();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+if (isTouch){
+  $('touch').hidden = false;
+  $('enterHint').hidden = true;
+  document.querySelectorAll('#touch [data-k]').forEach(b => {
+    const k = b.dataset.k;
+    const on = e => { e.preventDefault(); keys[k] = true; b.classList.add('on'); try{ b.setPointerCapture(e.pointerId); }catch(_){} };
+    const off = e => { keys[k] = false; b.classList.remove('on'); };
+    b.addEventListener('pointerdown', on);
+    b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off);
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  });
+}
+
+function startGame(){
+  resetGame();
+  state = 'play';
+  $('menu').hidden = true; $('over').hidden = true;
+  canvas.focus && canvas.focus();
+}
+$('startBtn').addEventListener('click', startGame);
+$('againBtn').addEventListener('click', startGame);
+
+function endGame(){
+  state = 'over';
+  $('fPts').textContent = points.toLocaleString('pt-BR');
+  $('fOk').textContent = extinguished;
+  const s = Math.floor(elapsed);
+  $('fTime').textContent = Math.floor(s/60) + ':' + String(s % 60).padStart(2, '0');
+  $('over').hidden = false;
+  for (const k in keys) keys[k] = false;
+}
+
+let toastTimer = 0;
+function toast(msg, good){
+  const el = $('toast'); el.textContent = msg; el.classList.toggle('good', !!good); el.classList.add('on');
+  toastTimer = 1.8;
+}
+
+/* ---------- minimap ---------- */
+const mapCanvas = $('map'), mctx = mapCanvas.getContext('2d');
+const mapImg = document.createElement('canvas'); mapImg.width = mapImg.height = 512;
+{
+  const g = mapImg.getContext('2d'), k = 512/SIZE;
+  g.fillStyle = '#2a3036'; g.fillRect(0,0,512,512);
+  blocks.forEach(b => { g.fillStyle = b.park ? '#3d6a37' : '#59626a'; g.fillRect((b.x-BLOCK/2+HALF)*k, (b.z-BLOCK/2+HALF)*k, BLOCK*k, BLOCK*k); });
+  g.fillStyle = '#7e8a93';
+  buildingsForMap.forEach(b => g.fillRect((b.x-b.w/2+HALF)*k, (b.z-b.d/2+HALF)*k, b.w*k, b.d*k));
+}
+function drawMap(){
+  const M = mapCanvas.width; if (!M) return;
+  mctx.setTransform(1,0,0,1,0,0);
+  mctx.clearRect(0,0,M,M);
+  mctx.save();
+  mctx.beginPath(); mctx.arc(M/2, M/2, M/2, 0, Math.PI*2); mctx.clip();
+  const s = M/100, h = camYaw, c = Math.cos(h), sn = Math.sin(h);
+  const a = -c*s, b = -sn*s, cc = sn*s, d = -c*s;
+  const e = M/2 - (a*T.x + cc*T.z), f = M/2 - (b*T.x + d*T.z);
+  mctx.fillStyle = '#4c6e40'; mctx.fillRect(0,0,M,M);
+  mctx.setTransform(a,b,cc,d,e,f);
+  mctx.drawImage(mapImg, -HALF, -HALF, SIZE, SIZE);
+  mctx.setTransform(1,0,0,1,0,0);
+  const proj = (x,z,clampR) => {
+    let sx = a*x + cc*z + e - M/2, sy = b*x + d*z + f - M/2;
+    const r = Math.hypot(sx, sy);
+    if (clampR && r > clampR){ sx *= clampR/r; sy *= clampR/r; }
+    return [sx + M/2, sy + M/2];
+  };
+  const u = M/168;
+  hydrants.forEach(hy => { const [x,y] = proj(hy.x, hy.z, M/2 - 7*u); mctx.fillStyle = '#4fb3ff'; mctx.beginPath(); mctx.arc(x, y, 4.5*u, 0, 6.29); mctx.fill(); mctx.strokeStyle = '#fff'; mctx.lineWidth = 1.2*u; mctx.stroke(); });
+  targets.forEach(t => { if (t.burned){ const [x,y] = proj(t.x, t.z, 0); mctx.fillStyle = '#111'; mctx.fillRect(x-2.5*u, y-2.5*u, 5*u, 5*u); } });
+  fires.forEach(fr => {
+    const urgent = fr.age/fr.life;
+    const blink = 0.5 + 0.5*Math.sin(clock*(6 + urgent*14));
+    const [x,y] = proj(fr.pos.x, fr.pos.z, M/2 - 8*u);
+    mctx.fillStyle = `rgba(255,${Math.round(90 - urgent*70)},30,${0.55 + blink*0.45})`;
+    mctx.beginPath(); mctx.arc(x, y, (5.5 + blink*2)*u, 0, 6.29); mctx.fill();
+  });
+  // truck
+  mctx.translate(M/2, M/2);
+  mctx.fillStyle = '#ffd23a'; mctx.strokeStyle = '#000'; mctx.lineWidth = 1.5*u;
+  const ta = -(T.heading - camYaw);
+  mctx.rotate(ta);
+  mctx.beginPath(); mctx.moveTo(0, -8*u); mctx.lineTo(6*u, 7*u); mctx.lineTo(0, 3*u); mctx.lineTo(-6*u, 7*u); mctx.closePath(); mctx.fill(); mctx.stroke();
+  mctx.restore();
+}
+
+/* ---------- resize ---------- */
+function resize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  const r = $('mapBox').getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  mapCanvas.width = Math.round(r.width * dpr); mapCanvas.height = Math.round(r.height * dpr);
+}
+addEventListener('resize', resize);
+
+/* ---------- update ---------- */
+const tmp = new THREE.Vector3(), dir = new THREE.Vector3();
+const WATER_SPEED = 25, GRAV = 15;
+
+function aimDir(out){
+  const yaw = T.heading + T.aimYaw, p = T.aimPitch;
+  return out.set(Math.sin(yaw)*Math.cos(p), Math.sin(p), Math.cos(yaw)*Math.cos(p));
+}
+
+function updateTruck(dt){
+  const fwd = keys.KeyW, back = keys.KeyS;
+  const steer = (keys.KeyA ? 1 : 0) - (keys.KeyD ? 1 : 0);
+  if (fwd) T.speed = Math.min(T.speed + 16*dt, 22);
+  else if (back){ T.speed = T.speed > 0.5 ? T.speed - 34*dt : Math.max(T.speed - 9*dt, -8); }
+  else { T.speed *= (1 - 1.6*dt); if (Math.abs(T.speed) < 0.25) T.speed = 0; }
+  T.heading += steer * 1.9 * dt * clamp(T.speed/7, -1, 1);
+  T.x += Math.sin(T.heading) * T.speed * dt;
+  T.z += Math.cos(T.heading) * T.speed * dt;
+  // collide with blocks (truck stays on roads)
+  const R = 2.5;
+  for (const b of blocks){
+    const cx = clamp(T.x, b.x - BLOCK/2, b.x + BLOCK/2), cz = clamp(T.z, b.z - BLOCK/2, b.z + BLOCK/2);
+    const dx = T.x - cx, dz = T.z - cz, d2 = dx*dx + dz*dz;
+    if (d2 < R*R){
+      const dd = Math.sqrt(d2) || 0.001;
+      T.x = cx + dx/dd*R; T.z = cz + dz/dd*R;
+      T.speed *= 0.6;
+    }
+  }
+  T.x = clamp(T.x, -HALF + R, HALF - R); T.z = clamp(T.z, -HALF + R, HALF - R);
+
+  const aimRate = 1.6*dt;
+  if (keys.ArrowLeft || keys.KeyJ) T.aimYaw += aimRate;
+  if (keys.ArrowRight || keys.KeyL) T.aimYaw -= aimRate;
+  if (keys.ArrowUp || keys.KeyI) T.aimPitch = Math.min(T.aimPitch + aimRate*0.6, 0.95);
+  if (keys.ArrowDown || keys.KeyK) T.aimPitch = Math.max(T.aimPitch - aimRate*0.6, -0.05);
+}
+
+function stopped(){ return Math.abs(T.speed) < 0.6; }
+
+function updateWater(dt){
+  const spraying = keys.Space && stopped() && T.tank > 0 && state === 'play';
+  if (spraying){
+    T.speed = 0;
+    T.tank = Math.max(0, T.tank - SPRAY_RATE*dt);
+    nozzle.getWorldPosition(tmp);
+    aimDir(dir);
+    const n = Math.max(1, Math.round(80*dt));
+    for (let i=0;i<n;i++){
+      const w = water[waterIdx]; waterIdx = (waterIdx + 1) % WATER_MAX;
+      w.a = true; w.t = 0;
+      w.p.copy(tmp).addScaledVector(dir, rand(0, 0.4));
+      w.v.copy(dir).multiplyScalar(WATER_SPEED * rand(0.95, 1.04));
+      w.v.x += rand(-0.7, 0.7); w.v.y += rand(-0.5, 0.5); w.v.z += rand(-0.7, 0.7);
+    }
+    if (T.tank <= 0) toast('Tanque vazio!');
+  }
+  const near = fires.filter(f => (f.pos.x-T.x)**2 + (f.pos.z-T.z)**2 < 60*60);
+  for (let i=0;i<WATER_MAX;i++){
+    const w = water[i];
+    if (w.a){
+      w.v.y -= GRAV*dt;
+      w.p.addScaledVector(w.v, dt);
+      w.t += dt;
+      let dead = w.p.y < 0.15 || w.t > 4;
+      if (!dead) for (const f of near){
+        const dx = w.p.x - f.pos.x, dy = w.p.y - (f.pos.y + 0.6), dz = w.p.z - f.pos.z;
+        if (dx*dx + dy*dy + dz*dz < f.radius*f.radius){
+          f.hp -= 1.7; dead = true;
+          if (Math.random() < 0.18) puff(w.p.x, w.p.y, w.p.z, 0xeef4f8, rand(0.6, 1.1), rand(0.8, 1.4), rand(1.5, 3));
+          break;
+        }
+      }
+      if (dead){ w.a = false; if (w.p.y < 0.2 && Math.random() < 0.05) puff(w.p.x, 0.3, w.p.z, 0xcfe6f5, 0.4, 0.5, 0.6); }
+      dummy.position.copy(w.p); dummy.scale.setScalar(w.a ? 1 : 0);
+    } else dummy.scale.setScalar(0);
+    dummy.updateMatrix(); waterMesh.setMatrixAt(i, dummy.matrix);
+  }
+  waterMesh.instanceMatrix.needsUpdate = true;
+  return spraying;
+}
+
+function updateArc(show){
+  arc.visible = show;
+  if (!show) return;
+  nozzle.getWorldPosition(tmp); aimDir(dir);
+  const arr = arcGeo.attributes.position.array;
+  let x = tmp.x, y = tmp.y, z = tmp.z, vx = dir.x*WATER_SPEED, vy = dir.y*WATER_SPEED, vz = dir.z*WATER_SPEED;
+  for (let i=0;i<ARC_N;i++){
+    arr[i*3] = x; arr[i*3+1] = Math.max(y, 0.1); arr[i*3+2] = z;
+    if (y > 0.1){ x += vx*0.05; y += vy*0.05; z += vz*0.05; vy -= GRAV*0.05; }
+  }
+  arcGeo.attributes.position.needsUpdate = true;
+}
+
+function updateFires(dt){
+  if (state === 'play'){
+    spawnT -= dt;
+    const interval = Math.max(5, 12 - elapsed/35);
+    if (spawnT <= 0){ spawnT = interval; if (fires.length < 7) spawnFire(); }
+  }
+  for (let i=fires.length-1;i>=0;i--){
+    const f = fires[i];
+    if (state === 'play'){ f.age += dt; f.hp = Math.min(HP_MAX, f.hp + 2.6*dt); }
+    const s = 0.45 + (Math.max(f.hp, 0)/HP_MAX)*1.0;
+    f.group.scale.setScalar(s);
+    for (const m of f.flames){
+      const u = m.userData;
+      m.scale.set(u.sc*(0.9 + 0.15*Math.sin(clock*7 + u.ph)), u.sc*(0.75 + 0.45*Math.abs(Math.sin(clock*9 + u.ph))), u.sc*(0.9 + 0.15*Math.cos(clock*6 + u.ph)));
+      m.rotation.y += dt*2;
+    }
+    if (Math.random() < dt*(3 + s*4)) puff(f.pos.x + rand(-1,1), f.pos.y + 2.2*s, f.pos.z + rand(-1,1), f.age/f.life > 0.6 ? 0x2c2c2c : 0x555555, rand(1, 1.8)*s, rand(2.5, 4), rand(2, 3.5));
+    if (f.hp <= 0){
+      const pts = (f.target.type === 'building' ? 150 : 80) + Math.round((1 - f.age/f.life)*50);
+      points += pts; extinguished++;
+      for (let k=0;k<14;k++) puff(f.pos.x + rand(-1.5,1.5), f.pos.y + rand(0,2), f.pos.z + rand(-1.5,1.5), 0xf4f7fa, rand(1, 1.8), rand(1.2, 2.2), rand(2, 4));
+      toast('Fogo apagado! +' + pts, true);
+      removeFire(f);
+    } else if (f.age >= f.life){
+      burnTarget(f.target); losses++;
+      removeFire(f);
+      toast(f.target.type === 'building' ? 'Prédio perdido!' : 'Árvore perdida!');
+      if (losses >= MAX_LOSS) endGame();
+    }
+  }
+  targets.forEach(t => { if (t.smokeT > 0){ t.smokeT -= dt; if (Math.random() < dt*2) puff(t.firePos.x, t.firePos.y + 1, t.firePos.z, 0x333333, rand(1, 1.6), 3, 2); } });
+  // lights for nearest fires
+  const sorted = fires.slice().sort((a,b) => ((a.pos.x-T.x)**2 + (a.pos.z-T.z)**2) - ((b.pos.x-T.x)**2 + (b.pos.z-T.z)**2));
+  fireLights.forEach((l, k) => {
+    const f = sorted[k];
+    if (f){ l.position.set(f.pos.x, f.pos.y + 1.5, f.pos.z); l.intensity = (1.4 + 0.4*Math.sin(clock*13 + k)) * (0.5 + f.hp/HP_MAX); }
+    else l.intensity = 0;
+  });
+}
+
+function updatePuffs(dt){
+  for (let i=0;i<PUFF_MAX;i++){
+    const p = puffs[i];
+    if (p.a){
+      p.t += dt;
+      if (p.t >= p.life) p.a = false;
+      p.p.addScaledVector(p.v, dt);
+      const k = p.t / p.life;
+      dummy.position.copy(p.p);
+      dummy.scale.setScalar(p.a ? p.s*(0.6 + k*1.6)*(1 - k*k) : 0);
+    } else dummy.scale.setScalar(0);
+    dummy.updateMatrix(); puffMesh.setMatrixAt(i, dummy.matrix);
+  }
+  puffMesh.instanceMatrix.needsUpdate = true;
+}
+
+/* ---------- HUD ---------- */
+const el = {pts:$('sPts'), ok:$('sOk'), act:$('sAct'), lost:$('sLost'), tankL:$('tankL'), tankFill:$('tankFill'), speed:$('speed'), prompt:$('prompt'), arrow:$('arrow'), seekTxt:$('seekTxt'), riskFill:$('riskFill'), seek:$('seek')};
+const sprayKey = isTouch ? 'JATO' : 'ESPAÇO';
+const aimKeys = isTouch ? 'os botões de mira' : 'as setas';
+let lastPrompt = '';
+function setPrompt(t){ if (t !== lastPrompt){ el.prompt.textContent = t; lastPrompt = t; } }
+
+function updateHUD(spraying, nearH){
+  el.pts.textContent = points.toLocaleString('pt-BR');
+  el.ok.textContent = extinguished;
+  el.act.textContent = fires.length;
+  el.lost.textContent = losses + '/' + MAX_LOSS;
+  el.lost.classList.toggle('bad', losses >= 3);
+  el.tankL.textContent = fmtL(T.tank);
+  const frac = T.tank / TANK_MAX;
+  el.tankFill.style.width = (frac*100).toFixed(1) + '%';
+  el.tankFill.style.background = frac < 0.2 ? 'linear-gradient(90deg,#b8301f,#ff6a3a)' : '';
+  el.speed.textContent = Math.round(Math.abs(T.speed)*3.6) + ' km/h' + (T.speed < -0.3 ? ' · ré' : '');
+
+  let nearest = null, nd = Infinity;
+  for (const f of fires){ const d = Math.hypot(f.pos.x - T.x, f.pos.z - T.z); if (d < nd){ nd = d; nearest = f; } }
+  if (nearest){
+    el.seek.hidden = false;
+    const rel = Math.atan2(nearest.pos.x - T.x, nearest.pos.z - T.z) - camYaw;
+    el.arrow.style.transform = `rotate(${-rel}rad)`;
+    el.seekTxt.textContent = 'Fogo a ' + Math.round(nd) + ' m';
+    const r = nearest.age / nearest.life;
+    el.riskFill.style.width = (r*100).toFixed(0) + '%';
+    el.riskFill.style.background = r > 0.7 ? '#ff4a2a' : '#ffb627';
+  } else el.seek.hidden = true;
+
+  if (state !== 'play'){ setPrompt(''); return; }
+  let p = '';
+  if (nearH){
+    if (!stopped()) p = 'Hidrante! Pare o caminhão para abastecer';
+    else if (T.tank < TANK_MAX) p = 'Abastecendo… ' + Math.round(frac*100) + '%';
+    else p = 'Tanque cheio. Vá apagar o fogo!';
+  } else if (T.tank <= 0) p = 'Tanque vazio! Procure um hidrante (pontos azuis no mapa)';
+  else if (nearest && nd < 34){
+    if (!stopped()) p = 'Fogo perto! Pare o caminhão em frente ao incêndio';
+    else if (!spraying) p = 'Mire com ' + aimKeys + ' e segure ' + sprayKey;
+    else p = 'Jogando água… continue até apagar';
+  } else if (!nearest) p = 'Nenhum foco agora. Patrulhe a cidade';
+  setPrompt(p);
+}
+
+/* ---------- loop ---------- */
+let last = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min((now - last)/1000, 0.05); last = now;
+  clock += dt;
+  let spraying = false, nearH = null;
+
+  if (state === 'play'){
+    elapsed += dt;
+    updateTruck(dt);
+    for (const h of hydrants){ if (Math.hypot(h.x - T.x, h.z - T.z) < 9){ nearH = h; break; } }
+    if (nearH && stopped() && T.tank < TANK_MAX){
+      const before = T.tank;
+      T.tank = Math.min(TANK_MAX, T.tank + REFILL_RATE*dt);
+      if (before < TANK_MAX && T.tank >= TANK_MAX) toast('Tanque cheio!', true);
+    }
+  } else if (state === 'menu') {
+    T.speed = 0;
+  }
+  spraying = updateWater(dt);
+  updateFires(dt);
+  updatePuffs(dt);
+
+  // truck visuals
+  truck.position.set(T.x, 0, T.z);
+  truck.rotation.y = T.heading;
+  turret.rotation.y = T.aimYaw;
+  pitchG.rotation.x = -T.aimPitch;
+  wheels.forEach(w => w.rotation.x += T.speed*dt/0.62);
+  const flash = Math.sin(clock*14) > 0;
+  lightR.material.color.set(flash ? 0xff2a2a : 0x551111);
+  lightB.material.color.set(flash ? 0x1a2a55 : 0x3a7bff);
+  hydrants.forEach(h => { h.ring.scale.setScalar(1 + 0.15*Math.sin(clock*3)); });
+
+  updateArc(state === 'play' && stopped() && T.tank > 0);
+
+  // refill hose
+  if (nearH && stopped() && state === 'play'){
+    const a = hoseGeo.attributes.position.array;
+    a[0] = T.x; a[1] = 1.2; a[2] = T.z; a[3] = nearH.x; a[4] = TOP + 0.9; a[5] = nearH.z;
+    hoseGeo.attributes.position.needsUpdate = true; hose.visible = true;
+  } else hose.visible = false;
+
+  // camera
+  if (state === 'menu'){
+    const ang = clock*0.15;
+    camera.position.set(T.x + Math.sin(ang)*28, 15, T.z + Math.cos(ang)*28);
+    camera.lookAt(T.x, 3, T.z);
+    camYaw = ang + Math.PI;
+  } else {
+    const target = T.heading + (stopped() ? T.aimYaw*0.75 : 0);
+    let diff = target - camYaw;
+    diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+    camYaw += diff * Math.min(1, dt*3.2);
+    const dist = stopped() ? 15 : 14;
+    const cx = T.x - Math.sin(camYaw)*dist, cz = T.z - Math.cos(camYaw)*dist;
+    camera.position.lerp(tmp.set(cx, 8.5, cz), Math.min(1, dt*6));
+    camera.lookAt(T.x + Math.sin(camYaw)*7, 2.6, T.z + Math.cos(camYaw)*7);
+  }
+  sun.position.set(T.x + 40, 70, T.z + 25);
+  sun.target.position.set(T.x, 0, T.z);
+
+  if (toastTimer > 0){ toastTimer -= dt; if (toastTimer <= 0) $('toast').classList.remove('on'); }
+  updateHUD(spraying, nearH);
+  drawMap();
+  renderer.render(scene, camera);
+}
+
+resize();
+resetGame();
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
